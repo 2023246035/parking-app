@@ -1,0 +1,138 @@
+import reflex as rx
+from datetime import datetime
+from typing import Optional
+import sqlmodel
+from sqlmodel import Field, Relationship, SQLModel
+
+
+class User(SQLModel, table=True):
+    """User model for authentication and profile management."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    password_hash: str
+    name: str
+    phone: str
+    member_since: datetime = Field(default_factory=datetime.utcnow)
+    avatar_url: str = "https://api.dicebear.com/9.x/notionists/svg?seed=default"
+    bookings: list["Booking"] = Relationship(back_populates="user")
+    audit_logs: list["AuditLog"] = Relationship(back_populates="user")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "phone": self.phone,
+            "member_since": self.member_since.isoformat(),
+            "avatar_url": self.avatar_url,
+        }
+
+
+class ParkingLot(SQLModel, table=True):
+    """Parking Lot model containing lot details and availability."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    location: str = Field(index=True)
+    price_per_hour: float
+    total_spots: int
+    available_spots: int
+    image_url: str
+    features: str
+    rating: float
+    bookings: list["Booking"] = Relationship(back_populates="parking_lot")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "location": self.location,
+            "price_per_hour": self.price_per_hour,
+            "total_spots": self.total_spots,
+            "available_spots": self.available_spots,
+            "image_url": self.image_url,
+            "features": self.features.split(",") if self.features else [],
+            "rating": self.rating,
+        }
+
+
+class Booking(SQLModel, table=True):
+    """Booking model tracking reservations."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    start_date: str
+    start_time: str
+    duration_hours: int
+    total_price: float
+    status: str = Field(default="Pending")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    payment_status: str = Field(default="Pending")
+    transaction_id: Optional[str] = None
+    refund_amount: float = Field(default=0.0)
+    cancellation_reason: Optional[str] = None
+    cancellation_at: Optional[datetime] = None
+    user_id: int = Field(foreign_key="user.id")
+    user: Optional[User] = Relationship(back_populates="bookings")
+    lot_id: int = Field(foreign_key="parkinglot.id")
+    parking_lot: Optional[ParkingLot] = Relationship(back_populates="bookings")
+    payment: Optional["Payment"] = Relationship(back_populates="booking")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "lot_id": self.lot_id,
+            "user_id": self.user_id,
+            "start_date": self.start_date,
+            "start_time": self.start_time,
+            "duration_hours": self.duration_hours,
+            "total_price": self.total_price,
+            "status": self.status,
+            "created_at": self.created_at.isoformat(),
+            "payment_status": self.payment_status,
+            "transaction_id": self.transaction_id,
+        }
+
+
+class Payment(SQLModel, table=True):
+    """Payment model for transaction records."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    transaction_id: str = Field(unique=True, index=True)
+    amount: float
+    status: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    method: str
+    booking_id: int = Field(foreign_key="booking.id")
+    booking: Optional[Booking] = Relationship(back_populates="payment")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "transaction_id": self.transaction_id,
+            "booking_id": self.booking_id,
+            "amount": self.amount,
+            "status": self.status,
+            "timestamp": self.timestamp.isoformat(),
+            "method": self.method,
+        }
+
+
+class AuditLog(SQLModel, table=True):
+    """Audit log for tracking system actions."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    action: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    details: str
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    user: Optional[User] = Relationship(back_populates="audit_logs")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "action": self.action,
+            "timestamp": self.timestamp.isoformat(),
+            "details": self.details,
+            "user_id": self.user_id,
+        }

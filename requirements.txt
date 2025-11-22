@@ -1,0 +1,6 @@
+psycopg2-binary
+alembic
+reflex
+sqlmodel
+sqlalchemy
+fastapi

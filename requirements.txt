@@ -4,3 +4,4 @@ reflex
 sqlmodel
 sqlalchemy
 fastapi
+reflex==0.8.20

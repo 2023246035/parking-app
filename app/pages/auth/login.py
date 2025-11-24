@@ -136,33 +136,7 @@ def login_page() -> rx.Component:
                             ),
                             disabled=AuthState.is_loading,
                             on_click=AuthState.login,
-                            class_name="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold text-lg shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none",
-                        ),
-                        rx.el.div(
-                            rx.el.div(class_name="h-px bg-gray-200 flex-1"),
-                            rx.el.span(
-                                "or",
-                                class_name="text-xs text-gray-400 font-medium px-4 uppercase",
-                            ),
-                            rx.el.div(class_name="h-px bg-gray-200 flex-1"),
-                            class_name="flex items-center my-8",
-                        ),
-                        rx.el.div(
-                            rx.el.button(
-                                rx.icon(
-                                    "chrome", class_name="h-5 w-5 mr-2 text-gray-900"
-                                ),
-                                "Google",
-                                class_name="flex-1 flex items-center justify-center py-3 border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-semibold text-gray-700",
-                            ),
-                            rx.el.button(
-                                rx.icon(
-                                    "facebook", class_name="h-5 w-5 mr-2 text-blue-600"
-                                ),
-                                "Facebook",
-                                class_name="flex-1 flex items-center justify-center py-3 border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-semibold text-gray-700",
-                            ),
-                            class_name="flex gap-4 mb-8",
+                            class_name="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold text-lg shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none mb-8",
                         ),
                         rx.el.p(
                             "Don't have an account? ",

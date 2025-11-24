@@ -57,6 +57,20 @@ class ParkingLot(SQLModel, table=True):
         }
 
 
+class CancellationPolicy(SQLModel, table=True):
+    """Configurable cancellation and refund policy (BRD-aligned)"""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    full_refund_hours: int = Field(default=24)  # Hours before start for 100% refund
+    partial_refund_hours: int = Field(default=0)  # Hours before start for partial refund
+    partial_refund_percentage: int = Field(default=50)  # Percentage for partial refund
+    non_cancellable_hours: int = Field(default=0)  # Block cancellation within X hours
+    allow_cancellation_after_start: bool = Field(default=False)
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Booking(SQLModel, table=True):
     """Booking model tracking reservations."""
 
@@ -72,6 +86,7 @@ class Booking(SQLModel, table=True):
     refund_amount: float = Field(default=0.0)
     cancellation_reason: Optional[str] = None
     cancellation_at: Optional[datetime] = None
+    is_refundable: bool = Field(default=True)  # BRD: Support non-refundable bookings
     user_id: int = Field(foreign_key="user.id")
     user: Optional[User] = Relationship(back_populates="bookings")
     lot_id: int = Field(foreign_key="parkinglot.id")

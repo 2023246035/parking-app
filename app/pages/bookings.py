@@ -153,6 +153,29 @@ def booking_card(booking: Booking) -> rx.Component:
     )
 
 
+def empty_state(title: str, message: str) -> rx.Component:
+    """Empty state component for when there are no bookings"""
+    return rx.el.div(
+        rx.el.div(
+            rx.icon("calendar-x", class_name="h-16 w-16 text-gray-300 mb-4"),
+            rx.el.h3(
+                title,
+                class_name="text-xl font-semibold text-gray-700 mb-2",
+            ),
+            rx.el.p(
+                message,
+                class_name="text-gray-500 mb-6",
+            ),
+            rx.el.a(
+                "Browse Available Parking Lots",
+                href="/listings",
+                class_name="inline-block px-6 py-3 bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-medium rounded-xl hover:shadow-lg transition-all",
+            ),
+            class_name="flex flex-col items-center justify-center py-16",
+        ),
+    )
+
+
 def bookings_page() -> rx.Component:
     return rx.el.div(
         navbar(),
@@ -190,30 +213,39 @@ def bookings_page() -> rx.Component:
                             class_name="flex gap-2 p-1 bg-gray-100/50 rounded-xl w-fit mb-8 border border-gray-200",
                         ),
                         rx.tabs.content(
-                            "active",
-                            rx.el.div(
-                                rx.foreach(BookingState.active_bookings, booking_card),
-                                class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
-                                key=BookingState.active_bookings.to_string(),
-                            ),
-                        ),
-                        rx.tabs.content(
-                            "past",
-                            rx.el.div(
-                                rx.foreach(BookingState.past_bookings, booking_card),
-                                class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
-                                key=BookingState.past_bookings.to_string(),
-                            ),
-                        ),
-                        rx.tabs.content(
-                            "cancelled",
-                            rx.el.div(
-                                rx.foreach(
-                                    BookingState.cancelled_bookings, booking_card
+                            rx.cond(
+                                BookingState.active_bookings.length() > 0,
+                                rx.el.div(
+                                    rx.foreach(BookingState.active_bookings, booking_card),
+                                    class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
                                 ),
-                                class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
-                                key=BookingState.cancelled_bookings.to_string(),
+                                empty_state("No Active Bookings", "You don't have any active parking reservations."),
                             ),
+                            value="active",
+                        ),
+                        rx.tabs.content(
+                            rx.cond(
+                                BookingState.past_bookings.length() > 0,
+                                rx.el.div(
+                                    rx.foreach(BookingState.past_bookings, booking_card),
+                                    class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                                ),
+                                empty_state("No Past Bookings", "You haven't completed any parking reservations yet."),
+                            ),
+                            value="past",
+                        ),
+                        rx.tabs.content(
+                            rx.cond(
+                                BookingState.cancelled_bookings.length() > 0,
+                                rx.el.div(
+                                    rx.foreach(
+                                        BookingState.cancelled_bookings, booking_card
+                                    ),
+                                    class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+                                ),
+                                empty_state("No Cancelled Bookings", "You haven't cancelled any reservations."),
+                            ),
+                            value="cancelled",
                         ),
                         default_value="active",
                     ),

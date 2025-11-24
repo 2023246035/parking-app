@@ -11,10 +11,10 @@ print("="*80)
 
 # Check Users
 print("\n📊 USERS:")
-cursor.execute("SELECT id, email, name FROM user")
+cursor.execute("SELECT id, email, name, password_hash FROM user")
 users = cursor.fetchall()
 for user in users:
-    print(f"  ID: {user[0]} | Email: {user[1]} | Name: {user[2]}")
+    print(f"  ID: {user[0]} | Email: {user[1]} | Name: {user[2]} | Password Hash: {user[3]}")
 
 # Check Parking Lots
 print("\n🅿️  PARKING LOTS:")

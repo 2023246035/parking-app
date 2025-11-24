@@ -1,5 +1,7 @@
 import reflex as rx
 import logging
+import reflex as rx
+import logging
 from app.pages.home import home_page
 from app.pages.listings import listings_page
 from app.pages.bookings import bookings_page
@@ -7,6 +9,7 @@ from app.pages.profile import profile_page
 from app.pages.auth.login import login_page
 from app.pages.auth.register import register_page
 from app.pages.auth.forgot_password import forgot_password_page
+from app.pages.how_it_works import how_it_works_page
 from app.db.init_db import init_db
 from app.states.booking_state import BookingState
 from app.states.user_state import UserState
@@ -41,3 +44,4 @@ app.add_page(profile_page, route="/profile", on_load=AuthState.check_login)
 app.add_page(login_page, route="/login")
 app.add_page(register_page, route="/register")
 app.add_page(forgot_password_page, route="/forgot-password")
+app.add_page(how_it_works_page, route="/how-it-works")

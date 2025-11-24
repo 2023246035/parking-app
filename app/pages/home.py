@@ -42,34 +42,21 @@ def home_page() -> rx.Component:
                             ),
                             rx.el.div(
                                 rx.el.a(
-                                    rx.el.button(
-                                        "Find Parking Now",
-                                        class_name="bg-gradient-to-r from-sky-500 to-blue-600 text-white px-8 py-4 rounded-2xl hover:shadow-lg hover:shadow-sky-500/40 hover:scale-105 active:scale-95 transition-all font-semibold text-lg",
+                                    rx.el.div(
+                                        class_name="absolute top-0 right-0 w-[600px] h-[600px] bg-sky-200/30 rounded-full blur-3xl -z-10 animate-pulse"
                                     ),
-                                    href="/listings",
+                                    rx.image(
+                                        src="/placeholder.svg",
+                                        class_name="w-full h-auto rounded-3xl shadow-[0_20px_50px_rgb(0,0,0,0.1)] border border-white/50 backdrop-blur-sm transform rotate-2 hover:rotate-0 transition-transform duration-700 hover:scale-[1.02]",
+                                    ),
+                                    class_name="flex-1 relative hidden md:block",
                                 ),
-                                rx.el.button(
-                                    "How it Works",
-                                    class_name="bg-white/80 backdrop-blur-sm text-gray-700 px-8 py-4 rounded-2xl hover:bg-white transition-all border border-white/20 shadow-sm hover:shadow-md font-semibold text-lg",
-                                ),
-                                class_name="flex flex-col sm:flex-row gap-4",
+                                class_name="flex items-center gap-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32",
                             ),
-                            class_name="flex-1 z-10",
                         ),
-                        rx.el.div(
-                            rx.el.div(
-                                class_name="absolute top-0 right-0 w-[600px] h-[600px] bg-sky-200/30 rounded-full blur-3xl -z-10 animate-pulse"
-                            ),
-                            rx.image(
-                                src="/placeholder.svg",
-                                class_name="w-full h-auto rounded-3xl shadow-[0_20px_50px_rgb(0,0,0,0.1)] border border-white/50 backdrop-blur-sm transform rotate-2 hover:rotate-0 transition-transform duration-700 hover:scale-[1.02]",
-                            ),
-                            class_name="flex-1 relative hidden md:block",
-                        ),
-                        class_name="flex items-center gap-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32",
+                        class_name="bg-gradient-to-br from-sky-50 via-white to-indigo-50/30 min-h-[90vh]",
                     ),
-                    class_name="bg-gradient-to-br from-sky-50 via-white to-indigo-50/30 min-h-[90vh]",
-                )
+                ),
             ),
             rx.el.section(
                 rx.el.div(

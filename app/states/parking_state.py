@@ -22,10 +22,13 @@ class ParkingState(rx.State):
     @rx.event
     async def load_data(self):
         """Fetch parking lots from the database."""
+        logging.info("ParkingState: Starting load_data...")
         try:
             with rx.session() as session:
                 stmt = select(DBParkingLot)
                 db_lots = session.exec(stmt).all()
+                logging.info(f"ParkingState: Found {len(db_lots)} lots in DB")
+                
                 self.parking_lots = [
                     ParkingLot(
                         id=str(lot.id),
@@ -40,6 +43,7 @@ class ParkingState(rx.State):
                     )
                     for lot in db_lots
                 ]
+                logging.info(f"ParkingState: Populated {len(self.parking_lots)} state objects")
                 self.filter_lots()
         except Exception as e:
             logging.exception(f"Error loading parking data: {e}")
@@ -69,6 +73,7 @@ class ParkingState(rx.State):
     @rx.event
     def filter_lots(self):
         """Filter parking lots based on search query and location."""
+        logging.info(f"ParkingState: Filtering lots. Query='{self.search_query}', Location='{self.location_filter}'")
         query = self.search_query.lower()
         filtered = self.parking_lots
         if query:
@@ -84,6 +89,7 @@ class ParkingState(rx.State):
                 if self.location_filter.lower() in lot.location.lower()
             ]
         self.filtered_lots = filtered
+        logging.info(f"ParkingState: Filtered down to {len(self.filtered_lots)} lots")
 
     @rx.event
     def set_search_query(self, query: str):

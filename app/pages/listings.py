@@ -69,7 +69,12 @@ def listings_page() -> rx.Component:
                                 ),
                                 rx.el.p(
                                     "Try adjusting your search or filters to find what you're looking for.",
-                                    class_name="text-gray-500 max-w-md mx-auto",
+                                    class_name="text-gray-500 max-w-md mx-auto mb-6",
+                                ),
+                                rx.el.button(
+                                    "Reload Parking Lots",
+                                    on_click=ParkingState.load_data,
+                                    class_name="px-6 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors font-medium",
                                 ),
                                 class_name="col-span-full flex flex-col items-center justify-center py-32 text-center",
                             ),

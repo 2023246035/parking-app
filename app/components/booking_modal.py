@@ -56,6 +56,24 @@ def booking_modal() -> rx.Component:
                         class_name="bg-gray-50 p-4 rounded-xl mb-6 flex justify-between items-center",
                     ),
                     rx.el.div(
+                        rx.el.div(
+                            rx.el.div(
+                                rx.el.label(
+                                    "Date",
+                                    class_name="block text-sm font-medium text-gray-700 mb-1",
+                                ),
+                                rx.el.input(
+                                    type="date",
+                                    min=BookingState.start_date,
+                                    default_value=BookingState.start_date,
+                                    on_change=BookingState.set_start_date,
+                                    class_name="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none",
+                                ),
+                            ),
+                            rx.el.div(
+                                rx.el.label(
+                                    "Start Time",
+                                    class_name="block text-sm font-medium text-gray-700 mb-1",
                                 ),
                                 rx.el.input(
                                     type="time",

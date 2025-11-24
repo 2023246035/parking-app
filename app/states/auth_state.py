@@ -1,5 +1,7 @@
 import reflex as rx
 import asyncio
+import reflex as rx
+import asyncio
 import logging
 from sqlmodel import select
 from app.states.user_state import UserState
@@ -17,6 +19,15 @@ class AuthState(rx.State):
     is_loading: bool = False
     error_message: str = ""
     success_message: str = ""
+    
+    # OTP-related state variables
+    otp_code: str = ""
+    otp_step: str = "email"  # email, otp, password
+    otp_sent: bool = False
+    otp_verified: bool = False
+    new_password: str = ""
+    confirm_new_password: str = ""
+    otp_expires_at: str = ""
 
     @rx.event
     def set_email(self, value: str):
@@ -161,6 +172,158 @@ class AuthState(rx.State):
         logging.warning("Check login failed or no session. Redirecting to login.")
         yield rx.redirect("/login")
         return
+
+    @rx.event
+    def set_otp_code(self, value: str):
+        self.otp_code = value
+        self.error_message = ""
+
+    @rx.event
+    def set_new_password(self, value: str):
+        self.new_password = value
+        self.error_message = ""
+
+    @rx.event
+    def set_confirm_new_password(self, value: str):
+        self.confirm_new_password = value
+        self.error_message = ""
+
+    @rx.event
+    async def send_otp(self):
+        """Send OTP to user's email."""
+        from app.services.otp_service import create_otp_record
+        from app.services.email_service import send_otp_email
+        from datetime import datetime, timedelta
+
+        self.is_loading = True
+        self.error_message = ""
+        await asyncio.sleep(0.5)
+
+        if not self.email:
+            self.error_message = "Please enter your email address."
+            self.is_loading = False
+            return
+
+        # Generate and store OTP
+        otp_code = create_otp_record(self.email, "password_reset")
+
+        if not otp_code:
+            self.error_message = "No account found with this email address."
+            self.is_loading = False
+            return
+
+        # Send OTP via email (currently logs to console)
+        if send_otp_email(self.email, otp_code):
+            self.otp_sent = True
+            self.otp_step = "otp"
+            self.success_message = "OTP has been sent to your email. Check your console/logs."
+            expires_at = datetime.utcnow() + timedelta(minutes=5)
+            self.otp_expires_at = expires_at.strftime("%Y-%m-%d %H:%M:%S")
+            logging.info(f"OTP sent successfully to {self.email}")
+        else:
+            self.error_message = "Failed to send OTP. Please try again."
+
+        self.is_loading = False
+
+    @rx.event
+    async def verify_otp(self):
+        """Verify the OTP code entered by user."""
+        from app.services.otp_service import verify_otp_code
+
+        self.is_loading = True
+        self.error_message = ""
+        await asyncio.sleep(0.5)
+
+        if not self.otp_code:
+            self.error_message = "Please enter the OTP code."
+            self.is_loading = False
+            return
+
+        # Verify OTP
+        success, message = verify_otp_code(self.email, self.otp_code, "password_reset")
+
+        if success:
+            self.otp_verified = True
+            self.otp_step = "password"
+            self.success_message = "OTP verified! Please enter your new password."
+            logging.info(f"OTP verified for {self.email}")
+        else:
+            self.error_message = message
+
+        self.is_loading = False
+
+    @rx.event
+    async def reset_password(self):
+        """Reset the user's password after OTP verification."""
+        self.is_loading = True
+        self.error_message = ""
+        await asyncio.sleep(0.5)
+
+        if not self.otp_verified:
+            self.error_message = "Please verify OTP first."
+            self.is_loading = False
+            return
+
+        if not self.new_password or not self.confirm_new_password:
+            self.error_message = "Please enter both password fields."
+            self.is_loading = False
+            return
+
+        if self.new_password != self.confirm_new_password:
+            self.error_message = "Passwords do not match."
+            self.is_loading = False
+            return
+
+        if len(self.new_password) < 6:
+            self.error_message = "Password must be at least 6 characters long."
+            self.is_loading = False
+            return
+
+        try:
+            with rx.session() as session:
+                user = session.exec(
+                    select(DBUser).where(DBUser.email == self.email)
+                ).first()
+
+                if user:
+                    user.password_hash = self.new_password
+                    session.commit()
+                    self.success_message = "Password reset successful! Redirecting to login..."
+                    logging.info(f"Password reset successful for {self.email}")
+                    self.is_loading = False
+                    
+                    # Reset all state variables
+                    await asyncio.sleep(2)
+                    self.reset_password_state()
+                    yield rx.redirect("/login")
+                else:
+                    self.error_message = "User not found."
+                    self.is_loading = False
+        except Exception as e:
+            logging.exception(f"Error resetting password: {e}")
+            self.error_message = "An error occurred. Please try again."
+            self.is_loading = False
+
+    @rx.event
+    async def resend_otp(self):
+        """Resend OTP to user's email."""
+        self.otp_code = ""
+        self.success_message = ""
+        await self.send_otp()
+
+    @rx.event
+    def reset_password_state(self):
+        """Reset all password reset related state variables."""
+        self.email = ""
+        self.otp_code = ""
+        self.otp_step = "email"
+        self.otp_sent = False
+        self.otp_verified = False
+        self.new_password = ""
+        self.confirm_new_password = ""
+        self.error_message = ""
+        self.success_message = ""
+        self.otp_expires_at = ""
 
     @rx.event
     async def request_password_reset(self):

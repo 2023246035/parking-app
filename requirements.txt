@@ -5,3 +5,5 @@ sqlmodel
 sqlalchemy
 fastapi
 reflex==0.8.20
+boto3
+python-dotenv

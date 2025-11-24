@@ -1,5 +1,5 @@
 import reflex as rx
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 import sqlmodel
 from sqlmodel import Field, Relationship, SQLModel
@@ -130,6 +130,30 @@ class Payment(SQLModel, table=True):
             "status": self.status,
             "timestamp": self.timestamp.isoformat(),
             "method": self.method,
+        }
+
+
+class OTPVerification(SQLModel, table=True):
+    """OTP verification model for secure password reset and email verification."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)
+    otp_code: str
+    purpose: str = Field(default="password_reset")  # password_reset, email_verification
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime
+    is_used: bool = Field(default=False)
+    attempts: int = Field(default=0)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "purpose": self.purpose,
+            "created_at": self.created_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+            "is_used": self.is_used,
+            "attempts": self.attempts,
         }
 
 

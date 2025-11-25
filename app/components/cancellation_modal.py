@@ -2,74 +2,99 @@ import reflex as rx
 from app.states.booking_state import BookingState
 
 
-def cancellation_summary_row(
-    label: str, value: str, color: str = "text-gray-900"
-) -> rx.Component:
-    return rx.el.div(
-        rx.el.span(label, class_name="text-gray-600"),
-        rx.el.span(value, class_name=f"font-medium {color}"),
-        class_name="flex justify-between items-center mb-2",
-    )
-
-
 def cancellation_modal() -> rx.Component:
+    """Clean, minimal cancellation modal"""
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.title(
-                "Cancel Booking", class_name="text-xl font-bold text-gray-900 mb-2"
+            # Header
+            rx.el.div(
+                rx.el.h2(
+                    "Cancel Booking?",
+                    class_name="text-xl font-bold text-gray-900"
+                ),
+                rx.el.p(
+                    "This action cannot be undone",
+                    class_name="text-sm text-gray-500 mt-1"
+                ),
+                class_name="mb-6"
             ),
-            rx.dialog.description(
-                "Are you sure you want to cancel this booking?",
-                class_name="text-sm text-gray-500 mb-6",
-            ),
+            
             rx.cond(
                 BookingState.booking_to_cancel,
                 rx.el.div(
+                    # Refund info banner
                     rx.el.div(
-                        rx.icon(
-                            "flag_triangle_right",
-                            class_name="h-12 w-12 text-yellow-500 mb-2",
+                        rx.el.div(
+                            "ℹ️",
+                            class_name="text-2xl mr-3"
                         ),
-                        rx.el.p(
-                            BookingState.cancellation_message,
-                            class_name="text-center text-gray-700 font-medium mb-4",
+                        rx.el.div(
+                            rx.el.p(
+                                "Refund Policy",
+                                class_name="text-xs font-semibold text-gray-700 mb-0.5"
+                            ),
+                            rx.el.p(
+                                BookingState.cancellation_message,
+                                class_name="text-sm text-gray-600"
+                            ),
                         ),
-                        class_name="flex flex-col items-center p-4 bg-yellow-50 rounded-xl mb-6 border border-yellow-100",
+                        class_name="flex items-start p-4 bg-blue-50 rounded-lg mb-6 border border-blue-100"
                     ),
+                    
+                    # Payment summary
                     rx.el.div(
-                        cancellation_summary_row(
-                            "Original Payment",
-                            f"RM {BookingState.booking_to_cancel.total_price:.2f}",
+                        rx.el.div(
+                            rx.el.span("Original Payment", class_name="text-sm text-gray-600"),
+                            rx.el.span(
+                                f"RM {BookingState.booking_to_cancel.total_price:.2f}",
+                                class_name="text-sm font-semibold text-gray-900"
+                            ),
+                            class_name="flex justify-between mb-2"
                         ),
-                        cancellation_summary_row(
-                            "Refund Percentage", f"{BookingState.refund_percentage}%"
+                        
+                        rx.el.div(
+                            rx.el.span("Refund Percentage", class_name="text-sm text-gray-600"),
+                            rx.el.span(
+                                f"{BookingState.refund_percentage}%",
+                                class_name="text-sm font-semibold text-gray-900"
+                            ),
+                            class_name="flex justify-between mb-3"
                         ),
-                        rx.el.div(class_name="border-t border-gray-100 my-2"),
-                        cancellation_summary_row(
-                            "Refund Amount",
-                            f"RM {BookingState.refund_amount_display:.2f}",
-                            "text-green-600 font-bold",
+                        
+                        rx.el.div(class_name="border-t border-gray-200 my-3"),
+                        
+                        rx.el.div(
+                            rx.el.span("Refund Amount", class_name="text-sm font-semibold text-gray-900"),
+                            rx.el.span(
+                                f"RM {BookingState.refund_amount_display:.2f}",
+                                class_name="text-lg font-bold text-green-600"
+                            ),
+                            class_name="flex justify-between"
                         ),
-                        class_name="bg-gray-50 p-4 rounded-xl mb-6",
+                        
+                        class_name="bg-gray-50 p-4 rounded-lg mb-6"
                     ),
+                    
+                    # Action buttons
                     rx.el.div(
                         rx.dialog.close(
                             rx.el.button(
                                 "Keep Booking",
-                                class_name="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors",
                                 on_click=BookingState.close_cancellation_modal,
+                                class_name="flex-1 px-4 py-2.5 rounded-lg text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 font-medium transition-colors"
                             )
                         ),
                         rx.el.button(
                             "Confirm Cancellation",
-                            class_name="px-6 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 font-medium shadow-sm hover:shadow-md transition-all",
                             on_click=BookingState.confirm_cancellation,
+                            class_name="flex-1 px-4 py-2.5 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium transition-colors"
                         ),
-                        class_name="flex justify-end gap-3",
+                        class_name="flex gap-3"
                     ),
                 ),
             ),
-            class_name="bg-white rounded-2xl p-6 shadow-2xl max-w-md w-full",
+            
+            class_name="bg-white rounded-xl p-6 shadow-xl max-w-md w-full"
         ),
         open=BookingState.is_cancellation_modal_open,
         on_open_change=lambda open: rx.cond(

@@ -247,18 +247,6 @@ def home_page() -> rx.Component:
                             "Book for hours, days, or weeks. Extend your parking remotely if you need more time.",
                             "sky"
                         ),
-                        feature_card(
-                            "bell",
-                            "Smart Notifications",
-                            "Get instant alerts about your parking status, special offers, and reminders before expiry.",
-                            "purple"
-                        ),
-                        feature_card(
-                            "award",
-                            "Rewards Program",
-                            "Earn points with every booking. Redeem for discounts, free parking, and exclusive perks.",
-                            "emerald"
-                        ),
                         class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto px-6 sm:px-8 lg:px-12"
                     ),
                     

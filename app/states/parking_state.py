@@ -12,6 +12,13 @@ class ParkingState(rx.State):
     search_query: str = ""
     location_filter: str = "All"
     is_loading: bool = False
+    
+    # Advanced filters
+    min_price: float = 0.0
+    max_price: float = 100.0
+    sort_by: str = "default"  # Options: default, price_low, price_high, rating, availability
+    show_available_only: bool = False
+    show_filters: bool = False  # Toggle for filter panel visibility
 
     @rx.event
     def on_load(self):
@@ -72,22 +79,53 @@ class ParkingState(rx.State):
 
     @rx.event
     def filter_lots(self):
-        """Filter parking lots based on search query and location."""
+        """Filter parking lots based on all active filters."""
         logging.info(f"ParkingState: Filtering lots. Query='{self.search_query}', Location='{self.location_filter}'")
         query = self.search_query.lower()
         filtered = self.parking_lots
+        
+        # Search query filter
         if query:
             filtered = [
                 lot
                 for lot in filtered
                 if query in lot.name.lower() or query in lot.location.lower()
             ]
+        
+        # Location filter
         if self.location_filter != "All":
             filtered = [
                 lot
                 for lot in filtered
                 if self.location_filter.lower() in lot.location.lower()
             ]
+        
+        # Price range filter
+        if self.min_price > 0.0 or self.max_price < 100.0:
+            filtered = [
+                lot
+                for lot in filtered
+                if self.min_price <= lot.price_per_hour <= self.max_price
+            ]
+        
+        # Availability filter
+        if self.show_available_only:
+            filtered = [
+                lot
+                for lot in filtered
+                if lot.available_spots > 0
+            ]
+        
+        # Sorting
+        if self.sort_by == "price_low":
+            filtered = sorted(filtered, key=lambda x: x.price_per_hour)
+        elif self.sort_by == "price_high":
+            filtered = sorted(filtered, key=lambda x: x.price_per_hour, reverse=True)
+        elif self.sort_by == "rating":
+            filtered = sorted(filtered, key=lambda x: x.rating if x.rating else 0, reverse=True)
+        elif self.sort_by == "availability":
+            filtered = sorted(filtered, key=lambda x: x.available_spots, reverse=True)
+        
         self.filtered_lots = filtered
         logging.info(f"ParkingState: Filtered down to {len(self.filtered_lots)} lots")
 
@@ -99,4 +137,46 @@ class ParkingState(rx.State):
     @rx.event
     def set_location_filter(self, location: str):
         self.location_filter = location
+        self.filter_lots()
+    
+    @rx.event
+    def set_min_price(self, price: str):
+        try:
+            self.min_price = float(price) if price else 0.0
+            self.filter_lots()
+        except ValueError:
+            pass
+    
+    @rx.event
+    def set_max_price(self, price: str):
+        try:
+            self.max_price = float(price) if price else 100.0
+            self.filter_lots()
+        except ValueError:
+            pass
+    
+    @rx.event
+    def set_sort_by(self, sort_option: str):
+        self.sort_by = sort_option
+        self.filter_lots()
+    
+    @rx.event
+    def toggle_available_only(self):
+        self.show_available_only = not self.show_available_only
+        self.filter_lots()
+    
+    @rx.event
+    def toggle_filters(self):
+        """Toggle filter panel visibility."""
+        self.show_filters = not self.show_filters
+    
+    @rx.event
+    def reset_filters(self):
+        """Reset all filters to default values."""
+        self.search_query = ""
+        self.location_filter = "All"
+        self.min_price = 0.0
+        self.max_price = 100.0
+        self.sort_by = "default"
+        self.show_available_only = False
         self.filter_lots()

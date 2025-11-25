@@ -127,7 +127,7 @@ def home_page() -> rx.Component:
                                 rx.el.a(
                                     rx.icon("search", class_name="h-5 w-5 mr-2"),
                                     "Find Parking",
-                                    href="/search",
+                                    href="/listings",
                                     class_name="group inline-flex items-center px-8 py-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold text-lg shadow-2xl shadow-sky-500/50 hover:shadow-sky-500/70 hover:scale-105 hover:-translate-y-1 transition-all duration-300"
                                 ),
                                 rx.el.a(

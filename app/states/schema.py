@@ -19,6 +19,12 @@ class ParkingLot(rx.Base):
     image_url: str
     features: list[str]
     rating: float
+    # AI Features
+    base_price: float = 0.0
+    dynamic_price: float = 0.0
+    demand_multiplier: float = 1.0
+    recommendation_score: float = 0.0
+    recommendation_reasons: list[str] = []
 
 
 class Payment(rx.Base):

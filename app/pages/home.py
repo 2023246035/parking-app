@@ -131,7 +131,7 @@ def home_page() -> rx.Component:
                                     class_name="group inline-flex items-center px-8 py-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold text-lg shadow-2xl shadow-sky-500/50 hover:shadow-sky-500/70 hover:scale-105 hover:-translate-y-1 transition-all duration-300"
                                 ),
                                 rx.el.a(
-                                    rx.icon("play-circle", class_name="h-5 w-5 mr-2"),
+                                    rx.icon("play", class_name="h-5 w-5 mr-2"),
                                     "How it Works",
                                     href="/how-it-works",
                                     class_name="group inline-flex items-center px-8 py-4 rounded-2xl bg-white/80 backdrop-blur-sm text-gray-900 font-bold text-lg border-2 border-gray-200 hover:border-sky-500 hover:bg-white hover:scale-105 hover:-translate-y-1 transition-all duration-300 shadow-lg"
@@ -196,6 +196,71 @@ def home_page() -> rx.Component:
                 )
             ),
             
+            # AI Features Section
+            rx.el.section(
+                rx.el.div(
+                    rx.el.div(
+                        rx.el.h2(
+                            "Powered by Artificial Intelligence",
+                            class_name="text-3xl md:text-4xl font-black text-gray-900 mb-6 text-center"
+                        ),
+                        rx.el.p(
+                            "Experience the future of parking with our smart AI features.",
+                            class_name="text-xl text-gray-600 max-w-2xl mx-auto text-center mb-16"
+                        ),
+                        rx.el.div(
+                            # Feature 1: Chatbot
+                            rx.el.a(
+                                rx.el.div(
+                                    rx.el.div(
+                                        rx.icon("bot", class_name="w-8 h-8 text-white"),
+                                        class_name="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-6 shadow-lg shadow-purple-500/30"
+                                    ),
+                                    rx.el.h3("AI Assistant", class_name="text-xl font-bold text-gray-900 mb-3"),
+                                    rx.el.p(
+                                        "Chat with our AI to find parking, check prices, or get recommendations instantly.",
+                                        class_name="text-gray-600 leading-relaxed"
+                                    ),
+                                    class_name="p-8 bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 h-full"
+                                ),
+                                href="/chatbot"
+                            ),
+                            # Feature 2: Auto-Booking
+                            rx.el.a(
+                                rx.el.div(
+                                    rx.el.div(
+                                        rx.icon("brain-circuit", class_name="w-8 h-8 text-white"),
+                                        class_name="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center mb-6 shadow-lg shadow-blue-500/30"
+                                    ),
+                                    rx.el.h3("Smart Auto-Booking", class_name="text-xl font-bold text-gray-900 mb-3"),
+                                    rx.el.p(
+                                        "Our AI learns your routine and automatically books your favorite spots for you.",
+                                        class_name="text-gray-600 leading-relaxed"
+                                    ),
+                                    class_name="p-8 bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 h-full"
+                                ),
+                                href="/smart-dashboard"
+                            ),
+                            # Feature 3: Dynamic Pricing
+                            rx.el.div(
+                                rx.el.div(
+                                    rx.icon("trending-up", class_name="w-8 h-8 text-white"),
+                                    class_name="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center mb-6 shadow-lg shadow-orange-500/30"
+                                ),
+                                rx.el.h3("Dynamic Pricing", class_name="text-xl font-bold text-gray-900 mb-3"),
+                                rx.el.p(
+                                    "Fair pricing that adjusts in real-time based on demand and availability.",
+                                    class_name="text-gray-600 leading-relaxed"
+                                ),
+                                class_name="p-8 bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 h-full"
+                            ),
+                            class_name="grid grid-cols-1 md:grid-cols-3 gap-8"
+                        ),
+                        class_name="max-w-7xl mx-auto px-6"
+                    ),
+                    class_name="py-24 bg-gray-50"
+                )
+            ),
             # Features Section
             rx.el.section(
                 rx.el.div(

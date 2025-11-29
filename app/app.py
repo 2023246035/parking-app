@@ -1,7 +1,5 @@
 import reflex as rx
 import logging
-import reflex as rx
-import logging
 from app.pages.home import home_page
 from app.pages.listings import listings_page
 from app.pages.bookings import bookings_page
@@ -10,16 +8,23 @@ from app.pages.auth.login import login_page
 from app.pages.auth.register import register_page
 from app.pages.auth.forgot_password import forgot_password_page
 from app.pages.how_it_works import how_it_works_page
+from app.pages.admin_login import admin_login_page
+from app.pages.admin_dashboard import admin_dashboard
+from app.pages.admin_users import admin_users_page
+from app.pages.admin_bookings import admin_bookings_page
+from app.pages.admin_parking_lots import admin_parking_lots_page
+from app.pages.chatbot_page import chatbot_page
+from app.pages.smart_dashboard import smart_dashboard_page
 from app.db.init_db import init_db
 from app.states.booking_state import BookingState
 from app.states.user_state import UserState
 from app.states.auth_state import AuthState
+from app.states.admin_state import AdminState
 
 
 class AppState(rx.State):
     @rx.event
     def on_load(self):
-        """Run tasks when the app starts."""
         try:
             init_db()
         except Exception as e:
@@ -45,3 +50,10 @@ app.add_page(login_page, route="/login")
 app.add_page(register_page, route="/register")
 app.add_page(forgot_password_page, route="/forgot-password")
 app.add_page(how_it_works_page, route="/how-it-works")
+app.add_page(admin_login_page, route="/admin/login")
+app.add_page(admin_dashboard, route="/admin/dashboard")
+app.add_page(admin_users_page, route="/admin/users")
+app.add_page(admin_bookings_page, route="/admin/bookings")
+app.add_page(admin_parking_lots_page, route="/admin/parking-lots")
+app.add_page(chatbot_page, route="/chatbot", title="AI Assistant")
+app.add_page(smart_dashboard_page, route="/smart-dashboard", title="Auto-Booking")

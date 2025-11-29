@@ -4,19 +4,24 @@ import logging
 from sqlmodel import select
 from app.states.schema import ParkingLot
 from app.db.models import ParkingLot as DBParkingLot
+from app.db.models import User as DBUser
+from app.services.ai.pricing_ai import DynamicPricingEngine
+from app.services.ai.recommendation_ai import RecommendationEngine
 
 
 class ParkingState(rx.State):
     parking_lots: list[ParkingLot] = []
     filtered_lots: list[ParkingLot] = []
+    recommended_lots: list[ParkingLot] = []
     search_query: str = ""
     location_filter: str = "All"
     is_loading: bool = False
+    session_email: str = rx.Cookie("session_email")
     
     # Advanced filters
     min_price: float = 0.0
     max_price: float = 100.0
-    sort_by: str = "default"  # Options: default, price_low, price_high, rating, availability
+    sort_by: str = "default"  # Options: default, price_low, price_high, rating, availability, recommended
     show_available_only: bool = False
     show_filters: bool = False  # Toggle for filter panel visibility
 
@@ -28,16 +33,35 @@ class ParkingState(rx.State):
 
     @rx.event
     async def load_data(self):
-        """Fetch parking lots from the database."""
+        """Fetch parking lots from the database and apply AI features."""
         logging.info("ParkingState: Starting load_data...")
         try:
+            # 1. Update Dynamic Prices
+            await DynamicPricingEngine.update_all_parking_prices()
+            
             with rx.session() as session:
+                # Fetch lots
                 stmt = select(DBParkingLot)
                 db_lots = session.exec(stmt).all()
                 logging.info(f"ParkingState: Found {len(db_lots)} lots in DB")
                 
-                self.parking_lots = [
-                    ParkingLot(
+                # Get current user if logged in
+                user_id = None
+                if self.session_email:
+                    user = session.exec(select(DBUser).where(DBUser.email == self.session_email)).first()
+                    if user:
+                        user_id = user.id
+                        # Analyze preferences
+                        await RecommendationEngine.analyze_user_preferences(user_id)
+
+                # Process lots with AI
+                processed_lots = []
+                for lot in db_lots:
+                    # Calculate dynamic price for this lot
+                    pricing = await DynamicPricingEngine.calculate_dynamic_price(lot.id, lot.price_per_hour)
+                    
+                    # Create state object
+                    lot_obj = ParkingLot(
                         id=str(lot.id),
                         name=lot.name,
                         location=lot.location,
@@ -47,9 +71,37 @@ class ParkingState(rx.State):
                         image_url=lot.image_url,
                         features=lot.features.split(",") if lot.features else [],
                         rating=lot.rating,
+                        # AI Fields
+                        base_price=pricing['base_price'],
+                        dynamic_price=pricing['dynamic_price'],
+                        demand_multiplier=pricing['multipliers']['demand'],
+                        recommendation_score=0.0,
+                        recommendation_reasons=[]
                     )
-                    for lot in db_lots
-                ]
+                    processed_lots.append(lot_obj)
+
+                # Get Recommendations if user is logged in
+                if user_id:
+                    recommendations = await RecommendationEngine.get_recommendations(user_id)
+                    rec_map = {r['lot']['id']: r for r in recommendations}
+                    
+                    # Update lots with recommendation data
+                    for lot in processed_lots:
+                        if int(lot.id) in rec_map:
+                            rec_data = rec_map[int(lot.id)]
+                            lot.recommendation_score = rec_data['score']
+                            lot.recommendation_reasons = rec_data['factors']
+
+                    # Populate recommended_lots list (top 3)
+                    self.recommended_lots = sorted(
+                        [l for l in processed_lots if l.recommendation_score >= 7.0],
+                        key=lambda x: x.recommendation_score,
+                        reverse=True
+                    )[:3]
+                else:
+                    self.recommended_lots = []
+
+                self.parking_lots = processed_lots
                 logging.info(f"ParkingState: Populated {len(self.parking_lots)} state objects")
                 self.filter_lots()
         except Exception as e:
@@ -125,6 +177,8 @@ class ParkingState(rx.State):
             filtered = sorted(filtered, key=lambda x: x.rating if x.rating else 0, reverse=True)
         elif self.sort_by == "availability":
             filtered = sorted(filtered, key=lambda x: x.available_spots, reverse=True)
+        elif self.sort_by == "recommended":
+            filtered = sorted(filtered, key=lambda x: x.recommendation_score, reverse=True)
         
         self.filtered_lots = filtered
         logging.info(f"ParkingState: Filtered down to {len(self.filtered_lots)} lots")

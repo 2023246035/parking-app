@@ -47,12 +47,33 @@ def parking_card(lot: ParkingLot) -> rx.Component:
             rx.el.div(
                 status_badge(lot.available_spots), class_name="absolute top-4 right-4"
             ),
+            # Recommendation Badge
+            rx.cond(
+                lot.recommendation_score >= 7.0,
+                rx.el.div(
+                    rx.icon("star", class_name="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400"),
+                    "Top Pick",
+                    class_name="absolute top-4 left-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-900/90 backdrop-blur-md text-white border border-gray-700 shadow-lg z-10",
+                ),
+            ),
             class_name="relative overflow-hidden",
         ),
         rx.el.div(
             rx.el.div(
-                rx.el.h3(
-                    lot.name, class_name="text-lg font-bold text-gray-900 mb-1 truncate"
+                rx.el.div(
+                    rx.el.h3(
+                        lot.name, class_name="text-lg font-bold text-gray-900 truncate"
+                    ),
+                    # High Demand Badge
+                    rx.cond(
+                        lot.demand_multiplier >= 1.2,
+                        rx.el.div(
+                            rx.icon("trending-up", class_name="h-3 w-3 mr-1"),
+                            "High Demand",
+                            class_name="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 border border-orange-200 uppercase tracking-wide",
+                        ),
+                    ),
+                    class_name="flex items-center justify-between mb-1 gap-2"
                 ),
                 rx.el.div(
                     rx.icon(
@@ -75,34 +96,75 @@ def parking_card(lot: ParkingLot) -> rx.Component:
                 ),
                 rx.el.div(
                     rx.el.div(
-                        rx.el.span(
-                            "RM", class_name="text-xs font-medium text-gray-500 mr-1"
+                        # Dynamic Price Display
+                        rx.cond(
+                            (lot.dynamic_price > 0) & (lot.dynamic_price != lot.base_price),
+                            rx.el.div(
+                                rx.el.div(
+                                    rx.el.span(
+                                        "RM", class_name="text-xs font-medium text-gray-400 mr-0.5"
+                                    ),
+                                    rx.el.span(
+                                        f"{lot.base_price:.2f}",
+                                        class_name="text-sm font-medium text-gray-400 line-through",
+                                    ),
+                                    class_name="flex items-baseline mb-[-4px]"
+                                ),
+                                rx.el.div(
+                                    rx.el.span(
+                                        "RM", class_name="text-xs font-bold text-orange-600 mr-1"
+                                    ),
+                                    rx.el.span(
+                                        f"{lot.dynamic_price:.2f}",
+                                        class_name="text-2xl font-black text-orange-600",
+                                    ),
+                                    rx.el.span("/hr", class_name="text-xs text-orange-600/70 ml-1 font-medium"),
+                                    class_name="flex items-baseline",
+                                ),
+                                class_name="flex flex-col"
+                            ),
+                            # Standard Price Display
+                            rx.el.div(
+                                rx.el.span(
+                                    "RM", class_name="text-xs font-medium text-gray-500 mr-1"
+                                ),
+                                rx.el.span(
+                                    f"{lot.price_per_hour:.2f}",
+                                    class_name="text-2xl font-bold text-gray-900",
+                                ),
+                                rx.el.span("/hr", class_name="text-xs text-gray-500 ml-1"),
+                                class_name="flex items-baseline",
+                            ),
                         ),
-                        rx.el.span(
-                            f"{lot.price_per_hour:.2f}",
-                            class_name="text-2xl font-bold text-gray-900",
-                        ),
-                        rx.el.span("/hr", class_name="text-xs text-gray-500 ml-1"),
                         class_name="flex items-baseline",
                     ),
-                    rx.el.button(
-                        "Book Now",
-                        disabled=lot.available_spots == 0,
-                        on_click=lambda: rx.cond(
-                            lot.available_spots > 0,
-                            rx.cond(
-                                AuthState.is_authenticated,
-                                BookingState.open_modal(lot),
-                                rx.redirect("/login"),
-                            ),
-                            rx.noop(),
+                    rx.el.div(
+                        rx.el.button(
+                            rx.icon("bot", class_name="w-5 h-5"),
+                            on_click=rx.redirect(f"/chatbot?query=Tell me about {lot.name}"),
+                            class_name="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:scale-105 transition-all duration-200 mr-2",
+                            title="Ask AI about this lot"
                         ),
-                        class_name=rx.cond(
-                            lot.available_spots > 0,
-                            "bg-gradient-to-r from-sky-500 to-blue-600 text-white hover:shadow-lg hover:shadow-sky-500/30 hover:scale-105",
-                            "bg-gray-100 text-gray-400 cursor-not-allowed",
-                        )
-                        + " px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm",
+                        rx.el.button(
+                            "Book Now",
+                            disabled=lot.available_spots == 0,
+                            on_click=lambda: rx.cond(
+                                lot.available_spots > 0,
+                                rx.cond(
+                                    AuthState.is_authenticated,
+                                    BookingState.open_modal(lot),
+                                    rx.redirect("/login"),
+                                ),
+                                rx.noop(),
+                            ),
+                            class_name=rx.cond(
+                                lot.available_spots > 0,
+                                "bg-gradient-to-r from-sky-500 to-blue-600 text-white hover:shadow-lg hover:shadow-sky-500/30 hover:scale-105",
+                                "bg-gray-100 text-gray-400 cursor-not-allowed",
+                            )
+                            + " px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm flex-1",
+                        ),
+                        class_name="flex items-center flex-1 justify-end"
                     ),
                     class_name="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto",
                 ),

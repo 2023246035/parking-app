@@ -114,6 +114,7 @@ def search_bar() -> rx.Component:
                             rx.el.option("Price: High-Low", value="price_high"),
                             rx.el.option("Rating", value="rating"),
                             rx.el.option("Availability", value="availability"),
+                            rx.el.option("Recommended", value="recommended"),
                             value=ParkingState.sort_by,
                             class_name="w-full px-3 py-2 rounded-lg ring-1 ring-gray-200 focus:ring-sky-500 outline-none bg-white cursor-pointer",
                             on_change=ParkingState.set_sort_by,
@@ -153,6 +154,39 @@ def search_bar() -> rx.Component:
         ),
         
         class_name="bg-white border-b border-gray-100 px-6 py-5 sticky top-16 z-40 shadow-sm"
+    )
+
+
+def recommendations_section() -> rx.Component:
+    """Recommended lots section"""
+    return rx.cond(
+        ParkingState.recommended_lots.length() > 0,
+        rx.el.div(
+            rx.el.div(
+                rx.el.div(
+                    rx.el.h2(
+                        "Recommended for You",
+                        class_name="text-2xl font-bold text-gray-900"
+                    ),
+                    rx.el.span(
+                        "AI Picks",
+                        class_name="ml-3 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200 uppercase tracking-wide"
+                    ),
+                    class_name="flex items-center mb-2"
+                ),
+                rx.el.p(
+                    "Based on your booking history and preferences",
+                    class_name="text-sm text-gray-600 mb-6"
+                ),
+                rx.el.div(
+                    rx.foreach(ParkingState.recommended_lots, parking_card),
+                    class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                ),
+                class_name="max-w-7xl mx-auto px-6 py-8 border-b border-gray-200"
+            ),
+            class_name="bg-gradient-to-b from-purple-50/50 to-transparent"
+        ),
+        rx.fragment()
     )
 
 
@@ -207,6 +241,16 @@ def listings_page() -> rx.Component:
         search_bar(),
         
         rx.el.main(
+            # AI Status Banner
+            rx.el.div(
+                rx.el.div(
+                    rx.icon("sparkles", class_name="w-4 h-4 text-indigo-600 mr-2 animate-pulse"),
+                    rx.el.span("AI Dynamic Pricing & Recommendations Active", class_name="text-xs font-bold text-indigo-700 uppercase tracking-wide"),
+                    class_name="flex items-center justify-center"
+                ),
+                class_name="bg-indigo-50 border-b border-indigo-100 py-2"
+            ),
+            recommendations_section(),
             results_grid(),
             class_name="bg-gray-50 min-h-screen"
         ),

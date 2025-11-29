@@ -358,6 +358,7 @@ def bookings_page() -> rx.Component:
         ),
         
         cancellation_modal(),
+        feedback_modal(),
         footer(),
         
         class_name="font-['Roboto'] min-h-screen flex flex-col",

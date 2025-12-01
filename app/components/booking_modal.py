@@ -64,6 +64,7 @@ def booking_modal() -> rx.Component:
                                 ),
                                 rx.el.input(
                                     type="date",
+                                    min=BookingState.start_date,
                                     default_value=BookingState.start_date,
                                     on_change=BookingState.set_start_date,
                                     class_name="w-full rounded-lg border-gray-300 border px-3 py-2 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none",

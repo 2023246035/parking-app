@@ -35,6 +35,8 @@ def navbar() -> rx.Component:
                     AuthState.is_authenticated,
                     rx.fragment(
                         navbar_link("My Bookings", "/bookings"),
+                        navbar_link("AI Assistant", "/chatbot"),
+                        navbar_link("Smart Dashboard", "/smart-dashboard"),
                         navbar_link("Profile", "/profile"),
                     ),
                 ),

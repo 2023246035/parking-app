@@ -1,6 +1,6 @@
 import reflex as rx
 from sqlmodel import select, SQLModel
-from app.db.models import ParkingLot, User, Booking, Payment, AuditLog
+from app.db.models import ParkingLot, User, Booking, Payment, AuditLog, CancellationPolicy, BookingRule
 import logging
 
 
@@ -12,6 +12,23 @@ def init_db():
             engine = session.get_bind()
             SQLModel.metadata.create_all(engine)
             logging.info("Database tables verified/created.")
+            
+            # Initialize default cancellation policy
+            existing_policy = session.exec(select(CancellationPolicy)).first()
+            if not existing_policy:
+                logging.info("Creating default cancellation policy...")
+                default_policy = CancellationPolicy(
+                    full_refund_hours=24,
+                    partial_refund_hours=0,
+                    partial_refund_percentage=50,
+                    non_cancellable_hours=0,
+                    allow_cancellation_after_start=False,
+                    is_active=True
+                )
+                session.add(default_policy)
+                session.commit()
+                logging.info("Default cancellation policy created.")
+            
             existing_lots = session.exec(select(ParkingLot)).first()
             if not existing_lots:
                 logging.info("Seeding parking lots...")

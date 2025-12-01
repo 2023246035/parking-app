@@ -81,7 +81,7 @@ def otp_step() -> rx.Component:
         rx.cond(
             AuthState.success_message != "",
             rx.el.div(
-                rx.icon("check-circle", class_name="h-4 w-4 mr-2 text-green-600"),
+                rx.icon("check", class_name="h-4 w-4 mr-2 text-green-600"),
                 rx.el.p(AuthState.success_message, class_name="text-green-600"),
                 class_name="flex items-center p-3 mb-4 text-sm bg-green-50 border border-green-100 rounded-lg",
             ),
@@ -162,7 +162,7 @@ def password_step() -> rx.Component:
         rx.cond(
             AuthState.success_message != "",
             rx.el.div(
-                rx.icon("check-circle", class_name="h-4 w-4 mr-2 text-green-600"),
+                rx.icon("check", class_name="h-4 w-4 mr-2 text-green-600"),
                 rx.el.p(AuthState.success_message, class_name="text-green-600"),
                 class_name="flex items-center p-3 mb-4 text-sm bg-green-50 border border-green-100 rounded-lg",
             ),

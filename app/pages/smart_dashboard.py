@@ -1,171 +1,503 @@
+"""Smart Dashboard for Auto-Booking and AI Features"""
 import reflex as rx
-import json
-from typing import Dict, List
-from app.components.navbar import navbar
-from app.components.footer import footer
-from app.services.ai.auto_booking_ai import AutoBookingAgent
-from app.db.models import User
+from typing import List, Optional
 from sqlmodel import select
-from app.db.ai_models import AutoBookingSetting
+from app.components.navbar import navbar
+from app.states.auth_state import AuthState
+from app.db.models import BookingRule, User, ParkingLot
+from app.db.models import BookingRule as DBBookingRule  # Alias for clarity
 
-
-class BookingPattern(rx.Base):
-    """Model for a detected booking pattern"""
-    day: str
+# Pydantic model for UI
+class Rule(rx.Base):
+    id: int
+    location: str
+    days: List[str]
     time: str
-    duration: int
-    lot_id: int
-    frequency: int
+    duration: str
+    status: str
+    next_run: str
 
-
-class AutoBookingState(rx.State):
-    """State for the Auto-Booking Smart Dashboard"""
-    
-    # User Settings
-    enabled: bool = False
-    auto_confirm: bool = False
-    max_price: float = 15.0
+class SmartDashboardState(rx.State):
+    """State for Smart Dashboard"""
+    active_tab: str = "overview"
+    rules: List[Rule] = []
+    available_locations: List[str] = []
     
     # AI Insights
-    patterns: List[BookingPattern] = []
-    confidence_score: float = 0.0
+    savings: float = 145.50
+    hours_saved: int = 12
     
-    # UI State
-    is_loading: bool = False
-    session_email: str = rx.Cookie("session_email")
+    # Delete Confirmation
+    show_confirm_delete: bool = False
+    rule_to_delete_id: int = 0
+    
+    # Add/Edit Modal
+    show_rule_modal: bool = False
+    is_editing: bool = False
+    editing_rule_id: int = 0
+    
+    # Form Fields
+    form_location: str = ""
+    form_days: List[str] = []
+    form_time: str = "09:00"
+    form_duration: str = "1"
     
     @rx.event
     def on_load(self):
-        """Load data when page opens"""
-        self.is_loading = True
-        yield AutoBookingState.fetch_data
-
+        """Load rules from database on page load"""
+        return [SmartDashboardState.load_rules, SmartDashboardState.load_locations]
+    
     @rx.event
-    async def fetch_data(self):
-        """Fetch user settings and AI patterns"""
-        if not self.session_email:
-            self.is_loading = False
-            return
-
-        try:
-            with rx.session() as session:
-                user = session.exec(select(User).where(User.email == self.session_email)).first()
-                if not user:
-                    return
-
-                user_id = user.id
-                
-                # 1. Get Settings
-                settings = session.exec(
-                    select(AutoBookingSetting).where(AutoBookingSetting.user_id == user_id)
-                ).first()
-                
-                if settings:
-                    self.enabled = settings.enabled
-                    self.auto_confirm = settings.auto_confirm
-                    self.max_price = settings.max_price_threshold or 15.0
-                
-                # 2. Get AI Patterns
-                detected_patterns = AutoBookingAgent.detect_booking_patterns(user_id)
-                raw_patterns = detected_patterns.get("weekly_patterns", {})
-                
-                # Convert dict to list of BookingPattern objects
-                self.patterns = [
-                    BookingPattern(
-                        day=day,
-                        time=data["time"],
-                        duration=data["duration"],
-                        lot_id=data["lot_id"],
-                        frequency=data["frequency"]
-                    )
-                    for day, data in raw_patterns.items()
-                ]
-                
-                self.confidence_score = detected_patterns.get("confidence", 0.0)
-                
-        except Exception as e:
-            print(f"Error fetching auto-booking data: {e}")
-            yield rx.toast.error("Failed to load AI insights")
-        finally:
-            self.is_loading = False
-
+    async def load_locations(self):
+        """Fetch available parking locations from DB"""
+        with rx.session() as session:
+            lots = session.exec(select(ParkingLot)).all()
+            self.available_locations = [f"{lot.name} - {lot.location}" for lot in lots]
+        
     @rx.event
-    async def save_settings(self):
-        """Save user preferences"""
-        if not self.session_email:
+    async def load_rules(self):
+        """Fetch rules from DB for current user"""
+        auth_state = await self.get_state(AuthState)
+        user_email = auth_state.email
+        if not user_email:
             return
-
-        try:
-            with rx.session() as session:
-                user = session.exec(select(User).where(User.email == self.session_email)).first()
-                if not user:
-                    return
-
-                success = await AutoBookingAgent.save_auto_booking_settings(
-                    user_id=user.id,
-                    enabled=self.enabled,
-                    auto_confirm=self.auto_confirm,
-                    max_price_threshold=self.max_price
+            
+        with rx.session() as session:
+            user = session.exec(select(User).where(User.email == user_email)).first()
+            if not user:
+                return
+                
+            db_rules = session.exec(
+                select(DBBookingRule).where(DBBookingRule.user_id == user.id)
+            ).all()
+            
+            self.rules = [
+                Rule(
+                    id=r.id,
+                    location=r.location,
+                    days=r.days.split(","),
+                    time=r.time,
+                    duration=r.duration,
+                    status=r.status,
+                    next_run=r.next_run
                 )
+                for r in db_rules
+            ]
+
+    @rx.event
+    def set_tab(self, tab: str):
+        self.active_tab = tab
+        
+    @rx.event
+    async def toggle_rule(self, rule_id: int):
+        """Toggle a rule on/off in DB"""
+        with rx.session() as session:
+            rule = session.get(DBBookingRule, rule_id)
+            if rule:
+                rule.status = "Active" if rule.status == "Paused" else "Paused"
+                session.add(rule)
+                session.commit()
+                session.refresh(rule)
+        return SmartDashboardState.load_rules
+
+    @rx.event
+    def prompt_delete_rule(self, rule_id: int):
+        self.rule_to_delete_id = rule_id
+        self.show_confirm_delete = True
+
+    @rx.event
+    def cancel_delete(self):
+        self.show_confirm_delete = False
+        self.rule_to_delete_id = 0
                 
-                if success:
-                    yield rx.toast.success("Settings updated!")
-                else:
-                    yield rx.toast.error("Failed to save settings")
-                    
-        except Exception as e:
-            print(f"Error saving settings: {e}")
+    @rx.event
+    async def confirm_delete_rule(self):
+        """Delete rule from DB"""
+        if self.rule_to_delete_id:
+            with rx.session() as session:
+                rule = session.get(DBBookingRule, self.rule_to_delete_id)
+                if rule:
+                    session.delete(rule)
+                    session.commit()
+        
+        self.show_confirm_delete = False
+        self.rule_to_delete_id = 0
+        return SmartDashboardState.load_rules
+
+    # Modal & Form Handling
+    @rx.event
+    def open_add_modal(self):
+        self.is_editing = False
+        self.form_location = ""
+        self.form_days = []
+        self.form_time = "09:00"
+        self.form_duration = "1"
+        self.show_rule_modal = True
+        
+    @rx.event
+    def open_edit_modal(self, rule: Rule):
+        self.is_editing = True
+        self.editing_rule_id = rule.id
+        self.form_location = rule.location
+        self.form_days = rule.days
+        self.form_time = rule.time
+        self.form_duration = rule.duration.replace(" hours", "").replace(" hour", "")
+        self.show_rule_modal = True
+        
+    @rx.event
+    def close_rule_modal(self):
+        self.show_rule_modal = False
+        
+    @rx.event
+    def set_form_location(self, val: str):
+        self.form_location = val
+        
+    @rx.event
+    def set_form_time(self, val: str):
+        self.form_time = val
+        
+    @rx.event
+    def set_form_duration(self, val: str):
+        self.form_duration = val
 
     @rx.event
-    def toggle_enabled(self, checked: bool):
-        self.enabled = checked
-        yield AutoBookingState.save_settings
+    def toggle_day(self, day: str):
+        if day in self.form_days:
+            self.form_days.remove(day)
+        else:
+            self.form_days.append(day)
 
     @rx.event
-    def toggle_auto_confirm(self, checked: bool):
-        self.auto_confirm = checked
-        yield AutoBookingState.save_settings
+    async def save_rule(self):
+        """Save new or updated rule to DB"""
+        auth_state = await self.get_state(AuthState)
+        user_email = auth_state.email
+        if not user_email:
+            return
+            
+        with rx.session() as session:
+            user = session.exec(select(User).where(User.email == user_email)).first()
+            if not user:
+                return
 
-    @rx.event
-    def set_max_price(self, value: list[int]):
-        self.max_price = float(value[0])
-        yield AutoBookingState.save_settings
+            days_str = ",".join(self.form_days)
+            duration_str = f"{self.form_duration} hour{'s' if int(self.form_duration) > 1 else ''}"
+            
+            if self.is_editing:
+                rule = session.get(DBBookingRule, self.editing_rule_id)
+                if rule:
+                    rule.location = self.form_location
+                    rule.days = days_str
+                    rule.time = self.form_time
+                    rule.duration = duration_str
+                    session.add(rule)
+            else:
+                new_rule = DBBookingRule(
+                    location=self.form_location,
+                    days=days_str,
+                    time=self.form_time,
+                    duration=duration_str,
+                    status="Active",
+                    next_run="Tomorrow",  # Simplified logic
+                    user_id=user.id
+                )
+                session.add(new_rule)
+            
+            session.commit()
+            
+        self.show_rule_modal = False
+        return SmartDashboardState.load_rules
 
 
-def pattern_card(pattern: BookingPattern) -> rx.Component:
-    """Card showing a detected pattern with premium styling"""
+def stat_card(title: str, value: str, icon: str, color: str) -> rx.Component:
+    return rx.el.div(
+        rx.el.div(
+            rx.icon(icon, class_name="w-6 h-6 text-white"),
+            class_name=f"w-12 h-12 rounded-xl bg-gradient-to-br {color} flex items-center justify-center mb-4 shadow-lg"
+        ),
+        rx.el.p(title, class_name="text-sm text-gray-500 font-medium"),
+        rx.el.p(value, class_name="text-2xl font-bold text-gray-900"),
+        class_name="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
+    )
+
+
+def delete_confirmation_modal() -> rx.Component:
     return rx.el.div(
         rx.el.div(
             rx.el.div(
-                rx.el.span(
-                    pattern.day.capitalize(),
-                    class_name="text-xs font-bold text-indigo-500 uppercase tracking-wider"
+                rx.el.div(
+                    rx.icon("alert-triangle", class_name="h-6 w-6 text-red-600"),
+                    class_name="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10"
                 ),
-                rx.el.span(
-                    f"{pattern.frequency}x Found",
-                    class_name="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full border border-indigo-100"
+                rx.el.div(
+                    rx.el.h3("Delete Auto-Booking Rule", class_name="text-base font-semibold leading-6 text-gray-900"),
+                    rx.el.div(
+                        rx.el.p("Are you sure you want to delete this rule? This action cannot be undone.", class_name="text-sm text-gray-500"),
+                        class_name="mt-2"
+                    ),
+                    class_name="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left"
                 ),
-                class_name="flex justify-between items-center mb-3"
+                class_name="sm:flex sm:items-start"
             ),
             rx.el.div(
-                rx.icon("clock", class_name="w-5 h-5 text-gray-400 mr-2"),
-                rx.el.span(
-                    pattern.time,
-                    class_name="text-2xl font-black text-gray-900 tracking-tight"
+                rx.el.button(
+                    "Delete",
+                    on_click=SmartDashboardState.confirm_delete_rule,
+                    class_name="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto"
                 ),
-                class_name="flex items-center mb-2"
-            ),
-            rx.el.div(
-                rx.icon("map-pin", class_name="w-4 h-4 text-gray-400 mr-2"),
-                rx.el.span(
-                    f"Lot ID: {pattern.lot_id}",
-                    class_name="text-sm font-medium text-gray-500"
+                rx.el.button(
+                    "Cancel",
+                    on_click=SmartDashboardState.cancel_delete,
+                    class_name="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
                 ),
-                class_name="flex items-center"
+                class_name="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse"
             ),
-            class_name="p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all duration-300 group"
+            class_name="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6"
         ),
-        class_name="col-span-1"
+        class_name=rx.cond(
+            SmartDashboardState.show_confirm_delete,
+            "fixed inset-0 z-50 flex items-center justify-center bg-gray-500 bg-opacity-75 transition-opacity",
+            "hidden"
+        )
+    )
+
+
+def rule_modal() -> rx.Component:
+    """Modal for adding/editing rules"""
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    
+    return rx.el.div(
+        rx.el.div(
+            # Gradient header
+            rx.el.div(
+                rx.el.div(
+                    rx.el.div(
+                        rx.icon(
+                            rx.cond(SmartDashboardState.is_editing, "edit", "plus-circle"),
+                            class_name="w-6 h-6 text-white"
+                        ),
+                        class_name="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg"
+                    ),
+                    rx.el.div(
+                        rx.el.h3(
+                            rx.cond(SmartDashboardState.is_editing, "Edit Auto-Booking Rule", "Add New Rule"),
+                            class_name="text-xl font-bold text-gray-900"
+                        ),
+                        rx.el.p(
+                            "Schedule your parking automatically",
+                            class_name="text-sm text-gray-500 mt-0.5"
+                        ),
+                        class_name="ml-3"
+                    ),
+                    class_name="flex items-start"
+                ),
+                class_name="mb-6 pb-4 border-b border-gray-100"
+            ),
+            
+            # Form
+            rx.el.div(
+                # Location
+                rx.el.div(
+                    rx.el.label(
+                        rx.icon("map-pin", class_name="w-4 h-4 inline mr-1.5"),
+                        "Location",
+                        class_name="flex items-center text-sm font-semibold text-gray-700 mb-2"
+                    ),
+                    rx.select(
+                        SmartDashboardState.available_locations,
+                        value=SmartDashboardState.form_location,
+                        on_change=SmartDashboardState.set_form_location,
+                        placeholder="Select a parking location",
+                        size="3",
+                        class_name="w-full"
+                    ),
+                    class_name="mb-5"
+                ),
+                
+                # Days
+                rx.el.div(
+                    rx.el.label(
+                        rx.icon("calendar", class_name="w-4 h-4 inline mr-1.5"),
+                        "Days",
+                        class_name="flex items-center text-sm font-semibold text-gray-700 mb-2"
+                    ),
+                    rx.el.div(
+                        rx.foreach(
+                            days,
+                            lambda day: rx.el.button(
+                                day,
+                                on_click=lambda: SmartDashboardState.toggle_day(day),
+                                class_name=rx.cond(
+                                    SmartDashboardState.form_days.contains(day),
+                                    "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md hover:shadow-lg",
+                                    "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                ) + " px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
+                            )
+                        ),
+                        class_name="flex flex-wrap gap-2"
+                    ),
+                    class_name="mb-5"
+                ),
+                
+                # Time & Duration Row
+                rx.el.div(
+                    # Time
+                    rx.el.div(
+                        rx.el.label(
+                            rx.icon("clock", class_name="w-4 h-4 inline mr-1.5"),
+                            "Time",
+                            class_name="flex items-center text-sm font-semibold text-gray-700 mb-2"
+                        ),
+                        rx.el.div(
+                            rx.el.input(
+                                type="time",
+                                value=SmartDashboardState.form_time,
+                                on_change=SmartDashboardState.set_form_time,
+                                class_name="w-full px-4 py-2.5 rounded-lg border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
+                            ),
+                            class_name="relative"
+                        ),
+                        class_name="flex-1"
+                    ),
+                    # Duration
+                    rx.el.div(
+                        rx.el.label(
+                            rx.icon("timer", class_name="w-4 h-4 inline mr-1.5"),
+                            "Duration (Hours)",
+                            class_name="flex items-center text-sm font-semibold text-gray-700 mb-2"
+                        ),
+                        rx.el.input(
+                            type="number",
+                            min="1",
+                            max="24",
+                            value=SmartDashboardState.form_duration,
+                            on_change=SmartDashboardState.set_form_duration,
+                            placeholder="1",
+                            class_name="w-full px-4 py-2.5 rounded-lg border-2 border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                        ),
+                        class_name="flex-1"
+                    ),
+                    class_name="grid grid-cols-2 gap-4 mb-6"
+                ),
+            ),
+            
+            # Actions
+            rx.el.div(
+                rx.el.button(
+                    rx.icon("x", class_name="w-4 h-4 mr-1.5"),
+                    "Cancel",
+                    on_click=SmartDashboardState.close_rule_modal,
+                    class_name="flex items-center px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all"
+                ),
+                rx.el.button(
+                    rx.icon("check", class_name="w-4 h-4 mr-1.5"),
+                    "Save Rule",
+                    on_click=SmartDashboardState.save_rule,
+                    class_name="flex items-center px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg hover:from-indigo-600 hover:to-purple-700 shadow-md hover:shadow-lg transition-all"
+                ),
+                class_name="flex justify-end gap-3"
+            ),
+            class_name="bg-white rounded-2xl shadow-2xl p-7 w-full max-w-lg relative border border-gray-100"
+        ),
+        class_name=rx.cond(
+            SmartDashboardState.show_rule_modal,
+            "fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-md transition-opacity animate-in fade-in duration-200",
+            "hidden"
+        )
+    )
+
+
+def rule_card(rule: Rule) -> rx.Component:
+    return rx.el.div(
+        # Gradient border effect
+        rx.el.div(
+            # Header section with location and status
+            rx.el.div(
+                # Left side - Location icon and text
+                rx.el.div(
+                    rx.el.div(
+                        rx.icon("map-pin", class_name="w-5 h-5 text-white"),
+                        class_name="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg"
+                    ),
+                    rx.el.div(
+                        rx.el.h3(rule.location, class_name="font-bold text-gray-900 text-base"),
+                        rx.el.div(
+                            rx.foreach(
+                                rule.days,
+                                lambda d: rx.el.span(
+                                    d, 
+                                    class_name="text-xs bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 px-2.5 py-1 rounded-full mr-1 font-medium border border-indigo-100"
+                                )
+                            ),
+                            class_name="flex flex-wrap gap-1 mt-2"
+                        ),
+                        class_name="ml-3"
+                    ),
+                    class_name="flex items-start"
+                ),
+                # Right side - Status badge
+                rx.el.div(
+                    rx.el.span(
+                        rule.status,
+                        class_name=rx.cond(
+                            rule.status == "Active",
+                            "bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md",
+                            "bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-md"
+                        )
+                    ),
+                ),
+                class_name="flex justify-between items-start mb-5"
+            ),
+            
+            # Details section
+            rx.el.div(
+                rx.el.div(
+                    rx.el.div(
+                        rx.icon("clock", class_name="w-4 h-4 text-indigo-500 mr-2"),
+                        rx.el.span(rule.time + " (" + rule.duration + ")", class_name="text-sm text-gray-700 font-medium"),
+                        class_name="flex items-center bg-indigo-50 rounded-lg px-3 py-2"
+                    ),
+                    class_name="flex-1"
+                ),
+                rx.el.div(
+                    rx.el.div(
+                        rx.icon("calendar", class_name="w-4 h-4 text-purple-500 mr-2"),
+                        rx.el.span("Next: " + rule.next_run, class_name="text-sm text-gray-700 font-medium"),
+                        class_name="flex items-center bg-purple-50 rounded-lg px-3 py-2"
+                    ),
+                    class_name="flex-1"
+                ),
+                class_name="grid grid-cols-2 gap-3 mb-5"
+            ),
+            
+            # Action buttons
+            rx.el.div(
+                rx.el.button(
+                    rx.icon(
+                        rx.cond(rule.status == "Active", "pause", "play"),
+                        class_name="w-4 h-4 mr-1.5"
+                    ),
+                    rx.cond(rule.status == "Active", "Pause", "Resume"),
+                    on_click=lambda: SmartDashboardState.toggle_rule(rule.id),
+                    class_name="flex items-center text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all"
+                ),
+                rx.el.button(
+                    rx.icon("edit", class_name="w-4 h-4 mr-1.5"),
+                    "Edit",
+                    on_click=lambda: SmartDashboardState.open_edit_modal(rule),
+                    class_name="flex items-center text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-all"
+                ),
+                rx.el.button(
+                    rx.icon("trash-2", class_name="w-4 h-4 mr-1.5"),
+                    "Delete",
+                    on_click=lambda: SmartDashboardState.prompt_delete_rule(rule.id),
+                    class_name="flex items-center text-sm font-semibold text-red-600 hover:text-white bg-red-50 hover:bg-red-600 px-4 py-2 rounded-lg transition-all"
+                ),
+                class_name="flex items-center gap-2 pt-5 border-t border-gray-100"
+            ),
+            class_name="bg-white p-6 rounded-2xl"
+        ),
+        class_name="relative bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-50 p-[2px] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
     )
 
 
@@ -173,162 +505,83 @@ def smart_dashboard_page() -> rx.Component:
     return rx.el.div(
         navbar(),
         
-        rx.el.div(
-            # Header
+        rx.el.main(
             rx.el.div(
-                rx.el.h1(
-                    "Smart Dashboard",
-                    class_name="text-4xl font-black text-gray-900 mb-2 tracking-tight"
-                ),
-                rx.el.p(
-                    "Manage your AI Auto-Booking preferences and view insights.",
-                    class_name="text-lg text-gray-500"
-                ),
-                class_name="mb-12"
-            ),
-            
-            rx.el.div(
-                # Left Column: Settings
+                # Header
                 rx.el.div(
-                    # Main Toggle Card
+                    rx.el.h1("Smart Dashboard", class_name="text-3xl font-bold text-gray-900"),
+                    rx.el.p("Manage your AI preferences and auto-booking rules", class_name="text-gray-600 mt-1"),
+                    class_name="mb-8"
+                ),
+                
+                # Stats Row
+                rx.el.div(
+                    stat_card("Total Savings", "RM " + SmartDashboardState.savings.to_string(), "wallet", "from-green-500 to-emerald-600"),
+                    stat_card("Hours Saved", SmartDashboardState.hours_saved.to_string() + " hrs", "clock", "from-blue-500 to-indigo-600"),
+                    stat_card("Active Rules", SmartDashboardState.rules.length().to_string() + " Rules", "zap", "from-purple-500 to-violet-600"),
+                    class_name="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
+                ),
+                
+                # Content Grid
+                rx.el.div(
+                    # Left Column: Rules
                     rx.el.div(
                         rx.el.div(
-                            rx.el.div(
-                                rx.el.h3("AI Agent Status", class_name="text-lg font-bold text-gray-900"),
-                                rx.el.p("Allow AI to book spots automatically", class_name="text-sm text-gray-500"),
-                            ),
-                            rx.switch(
-                                checked=AutoBookingState.enabled,
-                                on_change=AutoBookingState.toggle_enabled,
-                                color_scheme="indigo",
-                                size="3",
-                                class_name="cursor-pointer"
+                            rx.el.h2("Auto-Booking Rules", class_name="text-xl font-bold text-gray-900"),
+                            rx.el.button(
+                                "+ New Rule",
+                                on_click=SmartDashboardState.open_add_modal,
+                                class_name="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800"
                             ),
                             class_name="flex justify-between items-center mb-6"
                         ),
+                        
                         rx.el.div(
-                            rx.cond(
-                                AutoBookingState.enabled,
+                            rx.foreach(SmartDashboardState.rules, rule_card),
+                            class_name="space-y-4"
+                        ),
+                        class_name="col-span-2"
+                    ),
+                    
+                    # Right Column: AI Insights
+                    rx.el.div(
+                        rx.el.div(
+                            rx.el.h2("AI Insights", class_name="text-xl font-bold text-gray-900 mb-6"),
+                            
+                            rx.el.div(
                                 rx.el.div(
-                                    rx.icon("sparkles", class_name="w-5 h-5 text-indigo-600 mr-2"),
-                                    rx.el.span("AI Active", class_name="font-bold text-indigo-700"),
-                                    class_name="flex items-center"
+                                    rx.icon("trending-down", class_name="w-5 h-5 text-green-600 mt-1 mr-3"),
+                                    rx.el.div(
+                                        rx.el.h4("Price Drop Alert", class_name="font-bold text-gray-900 text-sm"),
+                                        rx.el.p("Sunway Pyramid prices are 20% lower on Tuesdays.", class_name="text-sm text-gray-600 mt-1"),
+                                    ),
+                                    class_name="flex items-start p-4 bg-green-50 rounded-xl mb-4"
                                 ),
                                 rx.el.div(
-                                    rx.icon("pause-circle", class_name="w-5 h-5 text-gray-400 mr-2"),
-                                    rx.el.span("AI Paused", class_name="font-bold text-gray-500"),
-                                    class_name="flex items-center"
-                                )
-                            ),
-                            class_name=rx.cond(
-                                AutoBookingState.enabled,
-                                "bg-indigo-50 border border-indigo-100 p-3 rounded-xl transition-colors duration-300",
-                                "bg-gray-50 border border-gray-200 p-3 rounded-xl transition-colors duration-300"
-                            )
-                        ),
-                        class_name="p-6 bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 mb-6"
-                    ),
-                    
-                    # Configuration Card
-                    rx.el.div(
-                        rx.el.h3("Configuration", class_name="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6"),
-                        
-                        # Auto-Confirm
-                        rx.el.div(
-                            rx.el.div(
-                                rx.el.span("Auto-Confirm", class_name="font-bold text-gray-900 block"),
-                                rx.el.span("Skip manual approval", class_name="text-xs text-gray-500"),
-                            ),
-                            rx.switch(
-                                checked=AutoBookingState.auto_confirm,
-                                on_change=AutoBookingState.toggle_auto_confirm,
-                                color_scheme="gray",
-                            ),
-                            class_name="flex justify-between items-center mb-8"
-                        ),
-                        
-                        # Price Limit
-                        rx.el.div(
-                            rx.el.div(
-                                rx.el.span("Max Price Limit", class_name="font-bold text-gray-900"),
-                                rx.el.span(f"RM {AutoBookingState.max_price:.0f}", class_name="font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg text-sm"),
-                                class_name="flex justify-between items-center mb-4"
-                            ),
-                            rx.slider(
-                                default_value=[15],
-                                value=[AutoBookingState.max_price],
-                                on_change=AutoBookingState.set_max_price,
-                                min=5,
-                                max=50,
-                                step=1,
-                                class_name="w-full"
-                            ),
-                            rx.el.p("Don't book if price exceeds this limit", class_name="text-xs text-gray-400 mt-2"),
-                        ),
-                        
-                        class_name="p-8 bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100"
-                    ),
-                    class_name="col-span-1"
-                ),
-                
-                # Right Column: Insights
-                rx.el.div(
-                    # Confidence Score Card
-                    rx.el.div(
-                        rx.el.div(
-                            rx.el.h3("Pattern Confidence", class_name="text-sm font-bold text-white/80 uppercase tracking-wider mb-1"),
-                            rx.el.p("How well we know your routine", class_name="text-xs text-white/60"),
-                        ),
-                        rx.el.div(
-                            rx.el.span(
-                                f"{AutoBookingState.confidence_score * 100:.0f}%",
-                                class_name="text-5xl font-black text-white tracking-tighter"
-                            ),
-                            rx.icon("activity", class_name="w-12 h-12 text-white/20 absolute right-6 top-6"),
-                            class_name="mt-4 relative"
-                        ),
-                        # Progress Bar
-                        rx.el.div(
-                            rx.el.div(
-                                class_name="h-full bg-white/30 rounded-full",
-                                style={"width": f"{AutoBookingState.confidence_score * 100}%"}
-                            ),
-                            class_name="h-2 w-full bg-black/20 rounded-full mt-6 overflow-hidden"
-                        ),
-                        class_name="p-8 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl shadow-xl shadow-indigo-500/30 text-white mb-8 relative overflow-hidden"
-                    ),
-                    
-                    # Patterns Grid
-                    rx.el.div(
-                        rx.el.h3("Detected Routine", class_name="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"),
-                        rx.cond(
-                            AutoBookingState.patterns,
-                            rx.el.div(
-                                rx.foreach(
-                                    AutoBookingState.patterns,
-                                    pattern_card
+                                    rx.icon("alert-circle", class_name="w-5 h-5 text-orange-600 mt-1 mr-3"),
+                                    rx.el.div(
+                                        rx.el.h4("High Demand Warning", class_name="font-bold text-gray-900 text-sm"),
+                                        rx.el.p("KLCC is expected to be full by 10 AM tomorrow.", class_name="text-sm text-gray-600 mt-1"),
+                                    ),
+                                    class_name="flex items-start p-4 bg-orange-50 rounded-xl"
                                 ),
-                                class_name="grid grid-cols-1 sm:grid-cols-2 gap-4"
                             ),
-                            rx.el.div(
-                                rx.icon("search", class_name="w-10 h-10 text-gray-300 mb-3"),
-                                rx.el.p("No patterns detected yet", class_name="font-bold text-gray-900"),
-                                rx.el.p("Keep booking to train the AI", class_name="text-sm text-gray-500"),
-                                class_name="p-10 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-center"
-                            )
                         ),
+                        class_name="col-span-1"
                     ),
-                    
-                    class_name="col-span-1 md:col-span-2"
+                    class_name="grid grid-cols-1 lg:grid-cols-3 gap-12"
                 ),
                 
-                class_name="grid grid-cols-1 md:grid-cols-3 gap-8"
+                class_name="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
             ),
             
-            class_name="max-w-7xl mx-auto px-6 py-12"
+            # Modals
+            delete_confirmation_modal(),
+            rule_modal(),
+            
+            class_name="bg-gray-50 min-h-screen"
         ),
         
-        footer(),
-        class_name="min-h-screen bg-gray-50 font-['Inter',sans-serif]",
-        on_mount=AutoBookingState.on_load
+        class_name="font-['Roboto']",
+        on_mount=[AuthState.check_login, SmartDashboardState.on_load]
     )

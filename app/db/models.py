@@ -16,6 +16,7 @@ class User(SQLModel, table=True):
     member_since: datetime = Field(default_factory=datetime.utcnow)
     avatar_url: str = "https://api.dicebear.com/9.x/notionists/svg?seed=default"
     bookings: list["Booking"] = Relationship(back_populates="user")
+    booking_rules: list["BookingRule"] = Relationship(back_populates="user")
     audit_logs: list["AuditLog"] = Relationship(back_populates="user")
 
     def to_dict(self):
@@ -174,4 +175,31 @@ class AuditLog(SQLModel, table=True):
             "timestamp": self.timestamp.isoformat(),
             "details": self.details,
             "user_id": self.user_id,
+        }
+
+
+class BookingRule(SQLModel, table=True):
+    """Auto-booking rule for Smart Dashboard."""
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    location: str
+    days: str  # Comma-separated days: "Mon,Tue"
+    time: str
+    duration: str
+    status: str = Field(default="Active")
+    next_run: str
+    user_id: int = Field(foreign_key="user.id")
+    user: Optional[User] = Relationship(back_populates="booking_rules")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "location": self.location,
+            "days": self.days.split(","),
+            "time": self.time,
+            "duration": self.duration,
+            "status": self.status,
+            "next_run": self.next_run,
+            "user_id": self.user_id
         }

@@ -43,9 +43,9 @@ app = rx.App(
     ],
 )
 app.add_page(home_page, route="/", on_load=AppState.on_load)
-app.add_page(listings_page, route="/listings")
-app.add_page(bookings_page, route="/bookings", on_load=AuthState.check_login)
-app.add_page(profile_page, route="/profile", on_load=AuthState.check_login)
+app.add_page(listings_page, route="/listings")  # Public page - no login required
+app.add_page(bookings_page, route="/bookings", on_load=AuthState.check_login)  # Requires login
+app.add_page(profile_page, route="/profile", on_load=AuthState.check_login)  # Requires login
 app.add_page(login_page, route="/login")
 app.add_page(register_page, route="/register")
 app.add_page(forgot_password_page, route="/forgot-password")

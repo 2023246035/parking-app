@@ -126,7 +126,7 @@ def search_bar() -> rx.Component:
                     rx.el.div(
                         rx.el.button(
                             rx.icon(
-                                rx.cond(ParkingState.show_available_only, "check-circle", "circle"),
+                                rx.cond(ParkingState.show_available_only, "check", "circle"),
                                 class_name="h-4 w-4 mr-1.5"
                             ),
                             "Available",

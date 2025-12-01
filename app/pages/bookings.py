@@ -199,68 +199,6 @@ def empty_state(title: str, message: str) -> rx.Component:
     )
 
 
-def feedback_modal() -> rx.Component:
-    """Modal for collecting user feedback"""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("How was your parking experience?"),
-            rx.dialog.description(
-                rx.cond(
-                    BookingState.booking_for_feedback,
-                    "Please rate your recent parking at " + BookingState.booking_for_feedback.lot_name,
-                    "Please rate your recent parking"
-                )
-            ),
-            
-            rx.el.div(
-                # Star Rating
-                rx.el.div(
-                    rx.foreach(
-                        [1, 2, 3, 4, 5],
-                        lambda i: rx.icon(
-                            "star",
-                            on_click=lambda: BookingState.set_feedback_rating(i),
-                            class_name=rx.cond(
-                                BookingState.feedback_rating >= i,
-                                "w-8 h-8 text-yellow-400 fill-yellow-400 cursor-pointer transition-colors",
-                                "w-8 h-8 text-gray-300 cursor-pointer transition-colors"
-                            )
-                        )
-                    ),
-                    class_name="flex justify-center gap-2 my-6"
-                ),
-                
-                # Comment
-                rx.el.textarea(
-                    placeholder="Any comments? (Optional)",
-                    value=BookingState.feedback_comment,
-                    on_change=BookingState.set_feedback_comment,
-                    class_name="w-full p-3 border border-gray-300 rounded-lg mb-6 h-24 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                ),
-                
-                # Buttons
-                rx.el.div(
-                    rx.el.button(
-                        "Skip",
-                        on_click=BookingState.close_feedback_modal,
-                        class_name="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                    ),
-                    rx.el.button(
-                        "Submit Feedback",
-                        on_click=BookingState.submit_feedback,
-                        class_name="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors"
-                    ),
-                    class_name="flex justify-end gap-3"
-                )
-            ),
-            
-            class_name="max-w-md bg-white rounded-xl p-6 shadow-xl"
-        ),
-        open=BookingState.is_feedback_modal_open,
-        on_open_change=BookingState.close_feedback_modal,
-    )
-
-
 def bookings_page() -> rx.Component:
     return rx.el.div(
         navbar(),
@@ -358,7 +296,6 @@ def bookings_page() -> rx.Component:
         ),
         
         cancellation_modal(),
-        feedback_modal(),
         footer(),
         
         class_name="font-['Roboto'] min-h-screen flex flex-col",

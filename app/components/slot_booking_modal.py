@@ -79,7 +79,7 @@ def step1_slot_selection() -> rx.Component:
         rx.cond(
             BookingState.selected_slot != "",
             rx.el.div(
-                rx.icon("check-circle", class_name="h-5 w-5 text-green-500 mr-2"),
+                rx.icon("check", class_name="h-5 w-5 text-green-500 mr-2"),
                 "Selected: ",
                 rx.el.span(
                     BookingState.selected_slot,

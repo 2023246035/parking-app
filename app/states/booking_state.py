@@ -35,12 +35,6 @@ class BookingState(rx.State):
     refund_amount_display: float = 0.0
     refund_percentage: int = 0
     cancellation_message: str = ""
-    # Feedback variables
-    is_feedback_modal_open: bool = False
-    booking_for_feedback: Optional[Booking] = None
-    feedback_rating: int = 5
-    feedback_comment: str = ""
-
     # New slot booking variables
     booking_step: int = 1
     selected_slot: str = ""
@@ -98,7 +92,7 @@ class BookingState(rx.State):
 
     @rx.event
     async def load_bookings(self):
-        """Fetch user's bookings from the database and check for expiry."""
+        """Fetch user's bookings from the database."""
         user_email = self.session_email
         logging.info(
             f"BookingState.load_bookings: Checking bookings for user: '{user_email}'"
@@ -116,35 +110,6 @@ class BookingState(rx.State):
                         f"BookingState: User email '{user_email}' found in state/cookie but NOT in DB."
                     )
                     return
-                
-                # Check for expired bookings first
-                active_db_bookings = session.exec(
-                    select(DBBooking)
-                    .where(DBBooking.user_id == user.id)
-                    .where(DBBooking.status == "Confirmed")
-                ).all()
-                
-                bookings_completed_now = []
-                
-                for b in active_db_bookings:
-                    try:
-                        start_dt = datetime.strptime(f"{b.start_date} {b.start_time}", "%Y-%m-%d %H:%M")
-                        end_dt = start_dt + timedelta(hours=b.duration_hours)
-                        
-                        if datetime.now() > end_dt:
-                            b.status = "Completed"
-                            session.add(b)
-                            bookings_completed_now.append(b)
-                    except Exception as e:
-                        logging.error(f"Error checking expiry for booking {b.id}: {e}")
-                
-                if bookings_completed_now:
-                    session.commit()
-                    # Trigger feedback for the most recently completed booking
-                    # We'll handle this by setting a flag or just opening the modal for the first one found
-                    # Ideally, we should check if feedback already exists, but for now simple logic:
-                    pass 
-
                 stmt = (
                     select(DBBooking)
                     .where(DBBooking.user_id == user.id)
@@ -178,51 +143,9 @@ class BookingState(rx.State):
                         else "",
                     )
                     self.bookings.append(booking_obj)
-                    
-                    # Check if we should ask for feedback (recently completed and not rated)
-                    # For simplicity, if it was just moved to Completed in this session, we could ask.
-                    # But since we don't track "just moved" easily across the refresh, 
-                    # let's just check if it's in the list of bookings_completed_now
-                    for recently_completed in bookings_completed_now:
-                        if recently_completed.id == b.id:
-                            self.booking_for_feedback = booking_obj
-                            self.is_feedback_modal_open = True
-                            
         except Exception as e:
             logging.exception(f"Error loading bookings: {e}")
             yield rx.toast.error("Failed to load bookings.")
-
-    @rx.event
-    def open_feedback_modal(self, booking: Booking):
-        self.booking_for_feedback = booking
-        self.is_feedback_modal_open = True
-        self.feedback_rating = 5
-        self.feedback_comment = ""
-
-    @rx.event
-    def close_feedback_modal(self):
-        self.is_feedback_modal_open = False
-        self.booking_for_feedback = None
-
-    @rx.event
-    def set_feedback_rating(self, rating: int):
-        self.feedback_rating = rating
-
-    @rx.event
-    def set_feedback_comment(self, comment: str):
-        self.feedback_comment = comment
-
-    @rx.event
-    async def submit_feedback(self):
-        if not self.booking_for_feedback:
-            return
-        
-        # Here you would save the feedback to the database
-        # For now, we'll just simulate it and show a toast
-        
-        yield rx.toast.success("Thank you for your feedback!")
-        self.is_feedback_modal_open = False
-        self.booking_for_feedback = None
 
     @rx.event
     def open_modal(self, lot: ParkingLot):

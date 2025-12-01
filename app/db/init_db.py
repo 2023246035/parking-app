@@ -1,6 +1,6 @@
 import reflex as rx
 from sqlmodel import select, SQLModel
-from app.db.models import ParkingLot, User, Booking, Payment, AuditLog, CancellationPolicy
+from app.db.models import ParkingLot, User, Booking, Payment, AuditLog, CancellationPolicy, BookingRule
 import logging
 
 

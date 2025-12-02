@@ -174,6 +174,7 @@ class DynamicPricingEngine:
 
         return result
 
+
     @staticmethod
     async def update_all_parking_prices():
         """Update dynamic prices for all parking lots"""
@@ -197,6 +198,7 @@ class DynamicPricingEngine:
                 })
 
         return updated_lots
+
 
     @staticmethod
     async def get_price_history(lot_id: int, days: int = 7) -> List[Dict]:

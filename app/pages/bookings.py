@@ -10,8 +10,7 @@ def booking_status_badge(status: str) -> rx.Component:
     """Minimalist status badges"""
     return rx.match(
         status,
-        (
-            "Confirmed",
+       (" Confirmed",
             rx.el.span(
                 "● Confirmed",
                 class_name="text-xs font-semibold text-green-600"
@@ -75,84 +74,73 @@ def payment_status_badge(status: str) -> rx.Component:
 
 
 def booking_card(booking: Booking) -> rx.Component:
-    """Clean, minimal booking card"""
+    """Clean booking card with all details"""
     return rx.el.div(
-        # Card content
         rx.el.div(
-            # Top section - Status
+            # Status badges
             rx.el.div(
                 booking_status_badge(booking.status),
                 payment_status_badge(booking.payment_status),
                 class_name="flex items-center justify-between mb-4"
             ),
             
-            # Main info
-            rx.el.div(
-                rx.el.h3(
-                    booking.lot_name,
-                    class_name="text-lg font-bold text-gray-900 mb-1"
-                ),
-                rx.el.p(
-                    booking.lot_location,
-                    class_name="text-sm text-gray-500 mb-4"
-                ),
+            # Location
+            rx.el.h3(
+                booking.lot_name,
+                class_name="text-lg font-bold text-gray-900 mb-1"
+            ),
+            rx.el.p(
+                booking.lot_location,
+                class_name="text-sm text-gray-500 mb-4"
             ),
             
-            # Details grid
+            # Details grid with ALL information
             rx.el.div(
                 # Date & Time
                 rx.el.div(
                     rx.el.p("Date & Time", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(
-                        booking.start_date,
-                        class_name="text-sm font-semibold text-gray-900"
-                    ),
-                    rx.el.p(
-                        f"at {booking.start_time}",
-                        class_name="text-xs text-gray-600"
-                    ),
+                    rx.el.p(booking.start_date, class_name="text-sm font-semibold text-gray-900"),
+                    rx.el.p(f"at {booking.start_time}", class_name="text-xs text-gray-600"),
                 ),
                 
                 # Duration
                 rx.el.div(
                     rx.el.p("Duration", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(
-                        f"{booking.duration_hours} Hours",
-                        class_name="text-sm font-semibold text-gray-900"
-                    ),
+                    rx.el.p(f"{booking.duration_hours} Hours", class_name="text-sm font-semibold text-gray-900"),
                 ),
                 
-                # Booking ID
+                # Slot
+                rx.el.div(
+                    rx.el.p("Slot", class_name="text-xs text-gray-500 mb-1"),
+                    rx.el.p(booking.slot_id or "N/A", class_name="text-sm font-bold text-sky-600"),
+                ),
+                
+                #Vehicle
+                rx.el.div(
+                    rx.el.p("Vehicle", class_name="text-xs text-gray-500 mb-1"),
+                    rx.el.p(booking.vehicle_number or "N/A", class_name="text-sm font-mono font-semibold text-gray-900"),
+                ),
+                
+                # Phone
+                rx.el.div(
+                    rx.el.p("Contact", class_name="text-xs text-gray-500 mb-1"),
+                    rx.el.p(booking.phone_number or "N/A", class_name="text-sm text-gray-900"),
+                ),
+                
+                # Booking ID  
                 rx.el.div(
                     rx.el.p("Booking ID", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(
-                        booking.id,
-                        class_name="text-xs font-mono font-semibold text-gray-700"
-                    ),
+                    rx.el.p(booking.id, class_name="text-xs font-mono font-semibold text-gray-700"),
                 ),
                 
                 class_name="grid grid-cols-3 gap-4 mb-4 pb-4 border-b border-gray-100"
             ),
             
-            # Footer - Price & Action
+            # Footer
             rx.el.div(
                 rx.el.div(
-                    rx.el.p(
-                        rx.cond(
-                            booking.status == "Cancelled",
-                            "Refund Amount",
-                            "Total Paid"
-                        ),
-                        class_name="text-xs text-gray-500 mb-1"
-                    ),
-                    rx.el.p(
-                        rx.cond(
-                            booking.status == "Cancelled",
-                            f"RM {booking.refund_amount:.2f}",
-                            f"RM {booking.total_price:.2f}",
-                        ),
-                        class_name="text-xl font-bold text-gray-900"
-                    ),
+                    rx.el.p("Total Paid", class_name="text-xs text-gray-500 mb-1"),
+                    rx.el.p(f"RM {booking.total_price}", class_name="text-xl font-bold text-gray-900"),
                 ),
                 
                 rx.cond(
@@ -189,7 +177,7 @@ def empty_state(title: str, message: str) -> rx.Component:
                 message,
                 class_name="text-gray-600 mb-6"
             ),
-            rx.el.a(
+           rx.el.a(
                 "Find Parking →",
                 href="/listings",
                 class_name="inline-block px-6 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
@@ -204,7 +192,7 @@ def bookings_page() -> rx.Component:
         navbar(),
         
         rx.el.main(
-            # Simple Header
+            # Header
             rx.el.div(
                 rx.el.div(
                     rx.el.h1(

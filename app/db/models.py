@@ -88,6 +88,9 @@ class Booking(SQLModel, table=True):
     cancellation_reason: Optional[str] = None
     cancellation_at: Optional[datetime] = None
     is_refundable: bool = Field(default=True)  # BRD: Support non-refundable bookings
+    slot_id: Optional[str] = Field(default=None)
+    vehicle_number: Optional[str] = Field(default=None)
+    phone_number: Optional[str] = Field(default=None)
     user_id: int = Field(foreign_key="user.id")
     user: Optional[User] = Relationship(back_populates="bookings")
     lot_id: int = Field(foreign_key="parkinglot.id")

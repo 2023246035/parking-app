@@ -40,6 +40,25 @@ class BookingState(rx.State):
     selected_slot: str = ""
     vehicle_number: str = ""
     phone_number: str = ""
+    is_loading_slots: bool = False
+    occupied_slots: list[str] = []
+    
+    # Payment form fields
+    card_number: str = ""
+    card_expiry: str = ""
+    card_cvc: str = ""
+    card_name: str = ""
+    
+    # Validation error messages
+    error_slot: str = ""
+    error_date: str = ""
+    error_time: str = ""
+    error_vehicle: str = ""
+    error_phone: str = ""
+    error_payment_card: str = ""
+    error_payment_expiry: str = ""
+    error_payment_cvc: str = ""
+    error_payment_name: str = ""
 
     @rx.var
     def estimated_price(self) -> float:
@@ -83,12 +102,36 @@ class BookingState(rx.State):
     def can_proceed_to_next_step(self) -> bool:
         """Check if user can proceed to next step"""
         if self.booking_step == 1:
-            return self.selected_slot != ""
+            return self.start_date != "" and self.start_time != ""
         elif self.booking_step == 2:
-            return True
-        elif self.booking_step == 3:
-            return self.vehicle_number != "" and self.phone_number != ""
+            return self.selected_slot != ""
         return True
+
+    @rx.var
+    def zone_a_slots_with_status(self) -> list[dict]:
+        """Generate Zone A slots with availability status"""
+        return [
+            {"slot": f"A{i}", "available": f"A{i}" not in self.occupied_slots}
+            for i in range(1, 11)
+        ]
+
+    @rx.var
+    def zone_b_slots_with_status(self) -> list[dict]:
+        """Generate Zone B slots with availability status"""
+        return [
+            {"slot": f"B{i}", "available": f"B{i}" not in self.occupied_slots}
+            for i in range(1, 11)
+        ]
+
+    @rx.var
+    def available_slots_zone_a(self) -> list[str]:
+        """Get available slots in Zone A"""
+        return [f"A{i}" for i in range(1, 11) if f"A{i}" not in self.occupied_slots]
+
+    @rx.var
+    def available_slots_zone_b(self) -> list[str]:
+        """Get available slots in Zone B"""
+        return [f"B{i}" for i in range(1, 11) if f"B{i}" not in self.occupied_slots]
 
     @rx.event
     async def load_bookings(self):
@@ -141,6 +184,9 @@ class BookingState(rx.State):
                         cancellation_at=b.cancellation_at.isoformat()
                         if b.cancellation_at
                         else "",
+                        slot_id=b.slot_id or "",
+                        vehicle_number=b.vehicle_number or "",
+                        phone_number=b.phone_number or "",
                     )
                     self.bookings.append(booking_obj)
         except Exception as e:
@@ -155,6 +201,13 @@ class BookingState(rx.State):
         self.start_time = (datetime.now() + timedelta(hours=1)).strftime("%H:00")
         self.duration_hours = 2
         self.reset_booking_wizard()
+        # Clear all validation errors
+        self.error_slot = ""
+        self.error_date = ""
+        self.error_time = ""
+        self.error_vehicle = ""
+        self.error_phone = ""
+        self.occupied_slots = []
 
     @rx.event
     def close_modal(self):
@@ -164,10 +217,12 @@ class BookingState(rx.State):
     @rx.event
     def set_start_date(self, date: str):
         self.start_date = date
+        self.error_date = ""
 
     @rx.event
     def set_start_time(self, time: str):
         self.start_time = time
+        self.error_time = ""
 
     @rx.event
     def set_duration(self, hours: str):
@@ -180,6 +235,154 @@ class BookingState(rx.State):
     def select_slot(self, slot: str):
         """Select a parking slot"""
         self.selected_slot = slot
+        self.error_slot = ""
+
+    @rx.event
+    async def load_occupied_slots(self):
+        """Load occupied slots for selected date/time from database"""
+        self.is_loading_slots = True
+        self.occupied_slots = []
+        
+        try:
+            with rx.session() as session:
+                # Query bookings for the selected date/time and parking lot
+                from datetime import datetime, timedelta
+                
+                # Parse the selected datetime
+                booking_start = datetime.strptime(f"{self.start_date} {self.start_time}", "%Y-%m-%d %H:%M")
+                booking_end = booking_start + timedelta(hours=self.duration_hours)
+                
+                # Find all bookings that overlap with the selected time period
+                # A booking overlaps if:
+                # - It starts before our booking ends, AND
+                # - It ends after our booking starts
+                stmt = select(DBBooking).where(
+                    DBBooking.lot_id == int(self.selected_lot.id),
+                    DBBooking.status.in_(["Confirmed", "Pending"])
+                )
+                
+                all_bookings = session.exec(stmt).all()
+                
+                for booking in all_bookings:
+                    try:
+                        # Parse existing booking datetime
+                        existing_start = datetime.strptime(
+                            f"{booking.start_date} {booking.start_time}",
+                            "%Y-%m-%d %H:%M"
+                        )
+                        existing_end = existing_start + timedelta(hours=booking.duration_hours)
+                        
+                        # Check if bookings overlap
+                        if existing_start < booking_end and existing_end > booking_start:
+                            # Extract slot ID from transaction ID or use a default pattern
+                            # Assuming transaction_id might contain slot info like "TXN_123_A5"
+                            # For now, we'll use a simple random assignment for demo
+                            # In production, you'd store the slot_id in the booking table
+                            slot_id = getattr(booking, 'slot_id', None)
+                            if slot_id:
+                                self.occupied_slots.append(slot_id)
+                    except Exception as e:
+                        logging.warning(f"Error parsing booking datetime: {e}")
+                        continue
+                        
+        except Exception as e:
+            logging.exception(f"Error loading occupied slots: {e}")
+            logging.error("Failed to load slot availability")
+        finally:
+            self.is_loading_slots = False
+
+    @rx.event
+    async def proceed_to_slot_selection(self):
+        """Validate datetime and proceed to slot selection"""
+        # Clear errors
+        self.error_date = ""
+        self.error_time = ""
+        
+        # Validate date
+        if not self.start_date:
+            self.error_date = "Please select a date"
+            return
+            
+        # Validate time
+        if not self.start_time:
+            self.error_time = "Please select a time"
+            return
+            
+        # Check if date is not in the past
+        try:
+            from datetime import datetime
+            selected_date = datetime.strptime(self.start_date, "%Y-%m-%d").date()
+            today = datetime.now().date()
+            
+            if selected_date < today:
+                self.error_date = "Cannot book in the past"
+                return
+                
+            # If today, check time is in future
+            if selected_date == today:
+                selected_time = datetime.strptime(self.start_time, "%H:%M").time()
+                current_time = datetime.now().time()
+                if selected_time <= current_time:
+                    self.error_time = "Please select a future time"
+                    return
+        except Exception as e:
+            logging.error(f"Date validation error: {e}")
+            self.error_date = "Invalid date format"
+            return
+        
+        # Load occupied slots
+        await self.load_occupied_slots()
+        
+        # Move to step 2
+        self.booking_step = 2
+
+    @rx.event
+    def go_back_to_datetime(self):
+        """Go back to datetime selection"""
+        self.booking_step = 1
+        self.selected_slot = ""
+        self.error_slot = ""
+
+    @rx.event
+    def go_back_to_step_1(self):
+        """Go back to step 1"""
+        self.booking_step = 1
+        self.selected_slot = ""
+        self.error_slot = ""
+
+    @rx.event
+    def go_back_to_step_2(self):
+        """Go back to step 2"""
+        self.booking_step = 2
+
+    @rx.event
+    def go_back_to_step_3(self):
+        """Go back to step 3"""
+        self.booking_step = 3
+
+    @rx.event
+    def proceed_to_details(self):
+        """Step 2 -> Step 3: Validate slot selection"""
+        if not self.selected_slot:
+            self.error_slot = "Please select a slot"
+            return
+        self.booking_step = 3
+
+    @rx.event
+    def proceed_to_review(self):
+        """Step 3 -> Step 4: Validate vehicle and contact info"""
+        self.error_vehicle = ""
+        self.error_phone = ""
+        
+        if not self.vehicle_number or len(self.vehicle_number.strip()) < 3:
+            self.error_vehicle = "Vehicle number is required (min 3 chars)"
+            return
+            
+        if not self.phone_number or not self.phone_number.strip().isdigit() or len(self.phone_number.strip()) < 10:
+            self.error_phone = "Valid phone number is required (min 10 digits)"
+            return
+            
+        self.booking_step = 4
 
     @rx.event
     def set_vehicle_number(self, number: str):
@@ -190,10 +393,106 @@ class BookingState(rx.State):
     def set_phone_number(self, number: str):
         """Set contact phone number"""
         self.phone_number = number
+        # Clear error when user types valid phone
+        clean_phone = number.replace(" ", "").replace("-", "").replace("+", "")
+        if clean_phone.isdigit() and len(clean_phone) >= 10:
+            self.error_phone = ""
+
+    @rx.event
+    def set_card_number(self, value: str):
+        """Set credit card number"""
+        self.card_number = value
+        self.error_payment_card = ""
+
+    @rx.event
+    def set_card_expiry(self, value: str):
+        """Set card expiry date"""
+        self.card_expiry = value
+        self.error_payment_expiry = ""
+
+    @rx.event
+    def set_card_cvc(self, value: str):
+        """Set card CVC"""
+        self.card_cvc = value
+        self.error_payment_cvc = ""
+
+    @rx.event
+    def set_card_name(self, value: str):
+        """Set cardholder name"""
+        self.card_name = value
+        self.error_payment_name = ""
+
+    def validate_step(self) -> bool:
+        """Validate current step before proceeding"""
+        # Clear all errors first
+        self.error_slot = ""
+        self.error_date = ""
+        self.error_time = ""
+        self.error_vehicle = ""
+        self.error_phone = ""
+        
+        if self.booking_step == 1:
+            # Validate slot selection
+            if not self.selected_slot or self.selected_slot == "":
+                self.error_slot = "Please select a parking slot to continue"
+                return False
+                
+        elif self.booking_step == 2:
+            # Validate date and time
+            from datetime import datetime
+            try:
+                selected_date = datetime.strptime(self.start_date, "%Y-%m-%d").date()
+                today = datetime.now().date()
+                
+                if selected_date < today:
+                    self.error_date = "Please select a valid future date"
+                    return False
+                    
+                # Validate time if booking is for today
+                if selected_date == today:
+                    try:
+                        selected_time = datetime.strptime(self.start_time, "%H:%M").time()
+                        current_time = datetime.now().time()
+                        
+                        if selected_time <= current_time:
+                            self.error_time = "Please select a future time for today's booking"
+                            return False
+                    except ValueError:
+                        pass  # Time format issue, but let it proceed
+            except ValueError:
+                self.error_date = "Invalid date format"
+                return False
+                
+        elif self.booking_step == 3:
+            # Validate vehicle number
+            if not self.vehicle_number or len(self.vehicle_number.strip()) < 3:
+                self.error_vehicle = "Vehicle number is required (minimum 3 characters)"
+                return False
+                
+            # Validate phone number
+            if not self.phone_number or self.phone_number.strip() == "":
+                self.error_phone = "Phone number is required"
+                return False
+                
+            clean_phone = self.phone_number.replace(" ", "").replace("-", "").replace("+", "")
+            
+            if not clean_phone.isdigit():
+                self.error_phone = "Phone number must contain only digits"
+                return False
+                
+            if len(clean_phone) < 10:
+                self.error_phone = "Phone number must be at least 10 digits"
+                return False
+        
+        return True
 
     @rx.event
     def next_step(self):
         """Move to next step in booking wizard"""
+        # Validate current step first
+        if not self.validate_step():
+            return  # Stop if validation fails
+            
         if self.can_proceed_to_next_step and self.booking_step < 4:
             self.booking_step += 1
 
@@ -268,6 +567,9 @@ class BookingState(rx.State):
                     status="Confirmed",
                     payment_status="Paid",
                     transaction_id=transaction_id,
+                    slot_id=self.selected_slot,
+                    vehicle_number=self.vehicle_number,
+                    phone_number=self.phone_number,
                     created_at=timestamp,
                 )
                 session.add(new_booking)

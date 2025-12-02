@@ -61,3 +61,6 @@ class Booking(rx.Base):
     refund_amount: float = 0.0
     cancellation_reason: str = ""
     cancellation_at: str = ""
+    slot_id: str = ""
+    vehicle_number: str = ""
+    phone_number: str = ""

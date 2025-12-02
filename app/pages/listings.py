@@ -2,7 +2,7 @@ import reflex as rx
 from app.components.navbar import navbar
 from app.components.footer import footer
 from app.components.parking_card import parking_card, loading_card
-from app.components.slot_booking_modal import slot_booking_modal
+from app.components.booking_wizard_modal import booking_wizard_modal
 from app.components.payment_modal import payment_modal
 from app.states.parking_state import ParkingState
 
@@ -255,7 +255,7 @@ def listings_page() -> rx.Component:
             class_name="bg-gray-50 min-h-screen"
         ),
         
-        slot_booking_modal(),
+        booking_wizard_modal(),
         payment_modal(),
         footer(),
         

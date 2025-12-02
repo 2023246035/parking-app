@@ -234,3 +234,17 @@ class ParkingState(rx.State):
         self.sort_by = "default"
         self.show_available_only = False
         self.filter_lots()
+    def toggle_filters(self):
+        """Toggle filter panel visibility."""
+        self.show_filters = not self.show_filters
+    
+    @rx.event
+    def reset_filters(self):
+        """Reset all filters to default values."""
+        self.search_query = ""
+        self.location_filter = "All"
+        self.min_price = 0.0
+        self.max_price = 100.0
+        self.sort_by = "default"
+        self.show_available_only = False
+        self.filter_lots()

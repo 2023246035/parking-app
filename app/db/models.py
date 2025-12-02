@@ -85,6 +85,8 @@ class Booking(SQLModel, table=True):
     payment_status: str = Field(default="Pending")
     transaction_id: Optional[str] = None
     refund_amount: float = Field(default=0.0)
+    refund_status: Optional[str] = Field(default=None)  # None, "Pending", "Approved", "Rejected"
+    refund_approved_at: Optional[datetime] = None
     cancellation_reason: Optional[str] = None
     cancellation_at: Optional[datetime] = None
     is_refundable: bool = Field(default=True)  # BRD: Support non-refundable bookings

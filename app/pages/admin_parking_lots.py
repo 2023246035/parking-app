@@ -85,12 +85,12 @@ class AdminParkingLotsState(rx.State):
         self.form_location = value
 
     @rx.event
-    def set_form_price(self, value: str):
-        self.form_price = value
+    def set_form_price(self, value):
+        self.form_price = str(value)
 
     @rx.event
-    def set_form_total_spots(self, value: str):
-        self.form_total_spots = value
+    def set_form_total_spots(self, value):
+        self.form_total_spots = str(value)
 
     @rx.event
     async def save_parking_lot(self):

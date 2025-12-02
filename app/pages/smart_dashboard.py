@@ -1,11 +1,13 @@
 """Smart Dashboard for Auto-Booking and AI Features"""
 import reflex as rx
 from typing import List, Optional
+from datetime import datetime, timedelta
+import calendar
 from sqlmodel import select
 from app.components.navbar import navbar
 from app.states.auth_state import AuthState
-from app.db.models import BookingRule, User, ParkingLot
-from app.db.models import BookingRule as DBBookingRule  # Alias for clarity
+from app.db.models import BookingRule, User, ParkingLot, Booking
+from app.db.models import BookingRule as DBBookingRule, Booking as DBBooking  # Alias for clarity
 
 # Pydantic model for UI
 class Rule(rx.Base):
@@ -44,8 +46,94 @@ class SmartDashboardState(rx.State):
     
     @rx.event
     def on_load(self):
-        """Load rules from database on page load"""
-        return [SmartDashboardState.load_rules, SmartDashboardState.load_locations]
+        """Load rules from database on page load and process them"""
+        return [SmartDashboardState.load_rules, SmartDashboardState.load_locations, SmartDashboardState.process_rules]
+
+    @rx.event
+    async def process_rules(self):
+        """Process active rules and create bookings if needed"""
+        auth_state = await self.get_state(AuthState)
+        user_email = auth_state.email
+        if not user_email:
+            return
+
+        with rx.session() as session:
+            user = session.exec(select(User).where(User.email == user_email)).first()
+            if not user:
+                return
+
+            # Get active rules
+            rules = session.exec(
+                select(DBBookingRule)
+                .where(DBBookingRule.user_id == user.id)
+                .where(DBBookingRule.status == "Active")
+            ).all()
+
+            tomorrow = datetime.now() + timedelta(days=1)
+            tomorrow_day_name = tomorrow.strftime("%a")  # Mon, Tue, etc.
+            tomorrow_date_str = tomorrow.strftime("%Y-%m-%d")
+
+            bookings_created = 0
+
+            for rule in rules:
+                # Check if rule applies to tomorrow
+                rule_days = rule.days.split(",")
+                if tomorrow_day_name in rule_days:
+                    # Parse location string "Name - Location"
+                    try:
+                        lot_name, lot_loc = rule.location.split(" - ", 1)
+                        lot = session.exec(
+                            select(ParkingLot)
+                            .where(ParkingLot.name == lot_name)
+                            .where(ParkingLot.location == lot_loc)
+                        ).first()
+                    except ValueError:
+                        continue # Skip if format is wrong
+
+                    if not lot:
+                        continue
+
+                    # Check if booking already exists
+                    existing_booking = session.exec(
+                        select(DBBooking)
+                        .where(DBBooking.user_id == user.id)
+                        .where(DBBooking.lot_id == lot.id)
+                        .where(DBBooking.start_date == tomorrow_date_str)
+                        .where(DBBooking.start_time == rule.time)
+                        .where(DBBooking.status != "Cancelled")
+                    ).first()
+
+                    if not existing_booking:
+                        # Create Booking
+                        duration = int(rule.duration.split(" ")[0])
+                        total_price = lot.price_per_hour * duration
+                        
+                        new_booking = DBBooking(
+                            lot_id=lot.id,
+                            user_id=user.id,
+                            start_date=tomorrow_date_str,
+                            start_time=rule.time,
+                            duration_hours=duration,
+                            total_price=total_price,
+                            status="Confirmed",
+                            payment_status="Paid (Auto)",
+                            created_at=datetime.now(),
+                            slot_id="AUTO-A1", # Placeholder
+                            vehicle_number="AUTO-CAR", # Placeholder
+                            phone_number=user.phone or "N/A"
+                        )
+                        session.add(new_booking)
+                        
+                        # Update rule next run
+                        rule.next_run = (tomorrow + timedelta(days=1)).strftime("%Y-%m-%d")
+                        session.add(rule)
+                        
+                        bookings_created += 1
+            
+            if bookings_created > 0:
+                session.commit()
+                yield rx.toast.success(f"Auto-booked {bookings_created} spots for tomorrow!")
+
     
     @rx.event
     async def load_locations(self):
@@ -157,8 +245,8 @@ class SmartDashboardState(rx.State):
         self.form_time = val
         
     @rx.event
-    def set_form_duration(self, val: str):
-        self.form_duration = val
+    def set_form_duration(self, val):
+        self.form_duration = str(val)
 
     @rx.event
     def toggle_day(self, day: str):

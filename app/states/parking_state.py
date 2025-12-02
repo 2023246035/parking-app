@@ -187,32 +187,6 @@ class ParkingState(rx.State):
     def set_search_query(self, query: str):
         self.search_query = query
         self.filter_lots()
-
-    @rx.event
-    def set_location_filter(self, location: str):
-        self.location_filter = location
-        self.filter_lots()
-    
-    @rx.event
-    def set_min_price(self, price: str):
-        try:
-            self.min_price = float(price) if price else 0.0
-            self.filter_lots()
-        except ValueError:
-            pass
-    
-    @rx.event
-    def set_max_price(self, price: str):
-        try:
-            self.max_price = float(price) if price else 100.0
-            self.filter_lots()
-        except ValueError:
-            pass
-    
-    @rx.event
-    def set_sort_by(self, sort_option: str):
-        self.sort_by = sort_option
-        self.filter_lots()
     
     @rx.event
     def toggle_available_only(self):

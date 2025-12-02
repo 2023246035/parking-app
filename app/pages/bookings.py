@@ -112,19 +112,28 @@ def booking_card(booking: Booking) -> rx.Component:
                 # Slot
                 rx.el.div(
                     rx.el.p("Slot", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(booking.slot_id or "N/A", class_name="text-sm font-bold text-sky-600"),
+                    rx.el.p(
+                        rx.cond(booking.slot_id != "", booking.slot_id, "N/A"),
+                        class_name="text-sm font-bold text-sky-600"
+                    ),
                 ),
                 
                 #Vehicle
                 rx.el.div(
                     rx.el.p("Vehicle", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(booking.vehicle_number or "N/A", class_name="text-sm font-mono font-semibold text-gray-900"),
+                    rx.el.p(
+                        rx.cond(booking.vehicle_number != "", booking.vehicle_number, "N/A"),
+                        class_name="text-sm font-mono font-semibold text-gray-900"
+                    ),
                 ),
                 
                 # Phone
                 rx.el.div(
                     rx.el.p("Contact", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(booking.phone_number or "N/A", class_name="text-sm text-gray-900"),
+                    rx.el.p(
+                        rx.cond(booking.phone_number != "", booking.phone_number, "N/A"),
+                        class_name="text-sm text-gray-900"
+                    ),
                 ),
                 
                 # Booking ID  
@@ -143,13 +152,37 @@ def booking_card(booking: Booking) -> rx.Component:
                     rx.el.p(f"RM {booking.total_price}", class_name="text-xl font-bold text-gray-900"),
                 ),
                 
-                rx.cond(
-                    booking.status == "Confirmed",
-                    rx.el.button(
-                        "Cancel",
-                        on_click=lambda: BookingState.initiate_cancellation(booking),
-                        class_name="text-sm font-medium text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors"
+                # Action buttons
+                rx.el.div(
+                    # Download Ticket
+                    rx.el.a(
+                        rx.icon("download", class_name="h-4 w-4 mr-1"),
+                        "Ticket",
+                        href="data:text/plain;charset=utf-8," + 
+                             "PARKING TICKET%0A" +
+                             "----------------%0A" +
+                             "Booking ID: " + booking.id + "%0A" +
+                             "Location: " + booking.lot_name + "%0A" +
+                             "Slot: " + rx.cond(booking.slot_id != "", booking.slot_id, "N/A") + "%0A" +
+                             "Date: " + booking.start_date + "%0A" +
+                             "Time: " + booking.start_time + "%0A" +
+                             "Vehicle: " + rx.cond(booking.vehicle_number != "", booking.vehicle_number, "N/A") + "%0A" +
+                             "Contact: " + rx.cond(booking.phone_number != "", booking.phone_number, "N/A") + "%0A" +
+                             "Total Paid: RM " + booking.total_price.to_string() + "%0A" +
+                             "Status: " + booking.status,
+                        download="ticket_" + booking.id + ".txt",
+                        class_name="flex items-center text-sm font-medium text-sky-600 hover:bg-sky-50 px-3 py-2 rounded-lg transition-colors mr-2"
                     ),
+                    
+                    rx.cond(
+                        booking.status == "Confirmed",
+                        rx.el.button(
+                            "Cancel",
+                            on_click=lambda: BookingState.initiate_cancellation(booking),
+                            class_name="text-sm font-medium text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors"
+                        ),
+                    ),
+                    class_name="flex items-center"
                 ),
                 
                 class_name="flex items-end justify-between"

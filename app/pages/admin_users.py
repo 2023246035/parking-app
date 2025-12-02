@@ -123,6 +123,11 @@ def admin_navbar() -> rx.Component:
                         href="/admin/parking-lots",
                         class_name="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
                     ),
+                    rx.el.a(
+                        "Refunds",
+                        href="/admin/refunds",
+                        class_name="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
+                    ),
                     class_name="flex items-center gap-2"
                 ),
                 class_name="flex items-center gap-8"

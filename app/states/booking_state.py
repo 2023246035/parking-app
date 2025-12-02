@@ -180,6 +180,8 @@ class BookingState(rx.State):
                         payment_status=b.payment_status,
                         transaction_id=b.transaction_id or "",
                         refund_amount=b.refund_amount,
+                        refund_status=b.refund_status or "",
+                        refund_approved_at=b.refund_approved_at.isoformat() if b.refund_approved_at else "",
                         cancellation_reason=b.cancellation_reason or "",
                         cancellation_at=b.cancellation_at.isoformat()
                         if b.cancellation_at
@@ -517,14 +519,84 @@ class BookingState(rx.State):
         self.is_modal_open = False
         self.is_payment_modal_open = True
         self.payment_error = ""
+        # Clear validation errors
+        self.error_payment_card = ""
+        self.error_payment_expiry = ""
+        self.error_payment_cvc = ""
+        self.error_payment_name = ""
 
     @rx.event
     def close_payment_modal(self):
         self.is_payment_modal_open = False
         self.is_processing_payment = False
 
+    def validate_payment(self) -> bool:
+        """Validate payment form fields"""
+        is_valid = True
+        
+        # Reset errors
+        self.error_payment_card = ""
+        self.error_payment_expiry = ""
+        self.error_payment_cvc = ""
+        self.error_payment_name = ""
+        self.payment_error = ""
+
+        # Validate Card Number
+        clean_card = self.card_number.replace(" ", "")
+        if not clean_card.isdigit():
+            self.error_payment_card = "Card number must contain only digits."
+            is_valid = False
+        elif len(clean_card) != 16:
+            self.error_payment_card = "Card number must be 16 digits."
+            is_valid = False
+
+        # Validate Expiry
+        if not self.card_expiry:
+            self.error_payment_expiry = "Expiry date is required."
+            is_valid = False
+        else:
+            try:
+                if "/" not in self.card_expiry:
+                    raise ValueError
+                month, year = self.card_expiry.split("/")
+                month = int(month)
+                year = int(year) + 2000  # Assume YY format
+                
+                now = datetime.now()
+                current_year = now.year
+                current_month = now.month
+                
+                if not (1 <= month <= 12):
+                    self.error_payment_expiry = "Invalid month (01-12)."
+                    is_valid = False
+                elif year < current_year or (year == current_year and month < current_month):
+                    self.error_payment_expiry = "Card has expired."
+                    is_valid = False
+            except ValueError:
+                self.error_payment_expiry = "Invalid format (MM/YY)."
+                is_valid = False
+
+        # Validate CVC
+        if not self.card_cvc.isdigit():
+            self.error_payment_cvc = "CVC must be numeric."
+            is_valid = False
+        elif not (3 <= len(self.card_cvc) <= 4):
+            self.error_payment_cvc = "CVC must be 3 or 4 digits."
+            is_valid = False
+
+        # Validate Name
+        if not self.card_name.strip():
+            self.error_payment_name = "Cardholder name is required."
+            is_valid = False
+
+        return is_valid
+
     @rx.event
     async def process_payment(self):
+        # Run validation first
+        if not self.validate_payment():
+            return
+
         self.is_processing_payment = True
         await asyncio.sleep(1.0)
         from app.states.auth_state import AuthState
@@ -667,44 +739,42 @@ class BookingState(rx.State):
                     yield rx.toast.error("Booking already cancelled.")
                     return
                 booking.status = "Cancelled"
-                booking.payment_status = (
-                    "Refunded"
-                    if self.refund_amount_display > 0
-                    else booking.payment_status
-                )
-                booking.refund_amount = self.refund_amount_display
+                
+                # Set refund status to Pending instead of processing immediately
+                if self.refund_amount_display > 0:
+                    booking.refund_status = "Pending"
+                    booking.refund_amount = self.refund_amount_display
+                    booking.payment_status = "Pending Refund"
+                else:
+                    booking.payment_status = "Cancelled (No Refund)"
+                
                 booking.cancellation_reason = "User requested via web"
                 booking.cancellation_at = datetime.now()
                 session.add(booking)
+                
+                # Free up the parking spot
                 lot = session.get(DBParkingLot, booking.lot_id)
                 if lot:
                     lot.available_spots += 1
                     session.add(lot)
-                if self.refund_amount_display > 0:
-                    refund = DBPayment(
-                        transaction_id=f"RFD_{str(uuid.uuid4())[:8].upper()}",
-                        booking_id=booking.id,
-                        amount=self.refund_amount_display,
-                        status="Refunded",
-                        timestamp=datetime.now(),
-                        method="Original Payment Method",
-                    )
-                    session.add(refund)
+                
+                # Audit log
                 audit = DBAuditLog(
                     action="Booking Cancelled",
                     timestamp=datetime.now(),
-                    details=f"Booking {booking.id} cancelled",
+                    details=f"Booking {booking.id} cancelled. Refund pending admin approval: RM {self.refund_amount_display:.2f}",
                     user_id=booking.user_id,
                 )
                 session.add(audit)
                 session.commit()
+                
                 from app.states.parking_state import ParkingState
 
                 parking_state = await self.get_state(ParkingState)
                 if lot:
                     parking_state.update_spots(lot.id, 1)
                 yield BookingState.load_bookings
-                yield rx.toast.info("Booking cancelled successfully.")
+                yield rx.toast.info("Booking cancelled. Refund request sent to admin for approval.")
         except Exception as e:
             logging.exception(f"Cancellation failed: {e}")
             yield rx.toast.error("Failed to cancel booking.")

@@ -59,6 +59,8 @@ class Booking(rx.Base):
     payment_status: str = "Pending"
     transaction_id: str = ""
     refund_amount: float = 0.0
+    refund_status: str = ""  # "", "Pending", "Approved", "Rejected"
+    refund_approved_at: str = ""
     cancellation_reason: str = ""
     cancellation_at: str = ""
     slot_id: str = ""

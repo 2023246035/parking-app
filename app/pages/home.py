@@ -96,7 +96,7 @@ def home_page() -> rx.Component:
                                         class_name="group inline-flex items-center px-8 py-4 rounded-full bg-gray-900 text-white font-bold text-lg shadow-lg hover:bg-gray-800 hover:scale-105 hover:shadow-xl transition-all duration-300"
                                     ),
                                     rx.el.a(
-                                        rx.icon("play-circle", class_name="w-5 h-5 mr-2"),
+                                        rx.icon("play", class_name="w-5 h-5 mr-2"),
                                         "How it Works",
                                         href="/how-it-works",
                                         class_name="inline-flex items-center px-8 py-4 rounded-full bg-white text-gray-900 font-bold text-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-300"

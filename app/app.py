@@ -13,6 +13,7 @@ from app.pages.admin_dashboard import admin_dashboard
 from app.pages.admin_users import admin_users_page
 from app.pages.admin_bookings import admin_bookings_page
 from app.pages.admin_parking_lots import admin_parking_lots_page
+from app.pages.admin_refunds import admin_refunds_page
 from app.pages.chatbot_page import chatbot_page
 from app.pages.smart_dashboard import smart_dashboard_page
 from app.db.init_db import init_db
@@ -55,5 +56,6 @@ app.add_page(admin_dashboard, route="/admin/dashboard")
 app.add_page(admin_users_page, route="/admin/users")
 app.add_page(admin_bookings_page, route="/admin/bookings")
 app.add_page(admin_parking_lots_page, route="/admin/parking-lots")
+app.add_page(admin_refunds_page, route="/admin/refunds")
 app.add_page(chatbot_page, route="/chatbot", title="AI Assistant")
 app.add_page(smart_dashboard_page, route="/smart-dashboard", title="Auto-Booking")

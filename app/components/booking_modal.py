@@ -142,7 +142,5 @@ def booking_modal() -> rx.Component:
             class_name="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full",
         ),
         open=BookingState.is_modal_open,
-        on_open_change=lambda open: rx.cond(
-            open, rx.noop(), BookingState.close_modal()
-        ),
+        on_open_change=BookingState.handle_modal_open_change,
     )

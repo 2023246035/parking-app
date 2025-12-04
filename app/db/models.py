@@ -193,6 +193,9 @@ class BookingRule(SQLModel, table=True):
     duration: str
     status: str = Field(default="Active")
     next_run: str
+    vehicle_number: Optional[str] = Field(default=None)
+    phone_number: Optional[str] = Field(default=None)
+    slot_id: Optional[str] = Field(default=None)
     user_id: int = Field(foreign_key="user.id")
     user: Optional[User] = Relationship(back_populates="booking_rules")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -206,5 +209,8 @@ class BookingRule(SQLModel, table=True):
             "duration": self.duration,
             "status": self.status,
             "next_run": self.next_run,
+            "vehicle_number": self.vehicle_number,
+            "phone_number": self.phone_number,
+            "slot_id": self.slot_id,
             "user_id": self.user_id
         }

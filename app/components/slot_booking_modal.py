@@ -367,7 +367,5 @@ def slot_booking_modal() -> rx.Component:
             class_name="bg-white rounded-2xl p-8 shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         ),
         open=BookingState.is_modal_open,
-        on_open_change=lambda open: rx.cond(
-            open, rx.noop(), BookingState.close_modal()
-        ),
+        on_open_change=BookingState.handle_modal_open_change,
     )

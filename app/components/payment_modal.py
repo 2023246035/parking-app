@@ -120,7 +120,5 @@ def payment_modal() -> rx.Component:
             class_name="bg-white rounded-2xl p-6 shadow-2xl max-w-md w-full",
         ),
         open=BookingState.is_payment_modal_open,
-        on_open_change=lambda open: rx.cond(
-            open, rx.noop(), BookingState.close_payment_modal()
-        ),
+        on_open_change=BookingState.handle_payment_modal_open_change,
     )

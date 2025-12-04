@@ -148,14 +148,10 @@ def parking_card(lot: ParkingLot) -> rx.Component:
                         rx.el.button(
                             "Book Now",
                             disabled=lot.available_spots == 0,
-                            on_click=lambda: rx.cond(
-                                lot.available_spots > 0,
-                                rx.cond(
-                                    AuthState.is_authenticated,
-                                    BookingState.open_modal(lot),
-                                    rx.redirect("/login"),
-                                ),
-                                rx.noop(),
+                            on_click=rx.cond(
+                                AuthState.is_authenticated,
+                                BookingState.open_modal(lot),
+                                rx.redirect("/login"),
                             ),
                             class_name=rx.cond(
                                 lot.available_spots > 0,

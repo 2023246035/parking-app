@@ -68,11 +68,40 @@ class BookingState(rx.State):
 
     @rx.var
     def active_bookings(self) -> list[Booking]:
-        return [b for b in self.bookings if b.status == "Confirmed"]
+        now = datetime.now()
+        active = []
+        for b in self.bookings:
+            if b.status == "Confirmed":
+                try:
+                    # Calculate end time
+                    start = datetime.strptime(f"{b.start_date} {b.start_time}", "%Y-%m-%d %H:%M")
+                    end = start + timedelta(hours=b.duration_hours)
+                    # Only include if end time is in the future
+                    if end > now:
+                        active.append(b)
+                except Exception as e:
+                    logging.error(f"Error parsing booking date for active check: {e}")
+                    # If error, keep in active to be safe
+                    active.append(b)
+        return active
 
     @rx.var
     def past_bookings(self) -> list[Booking]:
-        return [b for b in self.bookings if b.status == "Completed"]
+        now = datetime.now()
+        past = []
+        for b in self.bookings:
+            if b.status == "Completed":
+                past.append(b)
+            elif b.status == "Confirmed":
+                try:
+                    # Check if expired
+                    start = datetime.strptime(f"{b.start_date} {b.start_time}", "%Y-%m-%d %H:%M")
+                    end = start + timedelta(hours=b.duration_hours)
+                    if end <= now:
+                        past.append(b)
+                except Exception:
+                    pass
+        return past
 
     @rx.var
     def cancelled_bookings(self) -> list[Booking]:
@@ -215,6 +244,12 @@ class BookingState(rx.State):
     def close_modal(self):
         self.is_modal_open = False
         self.selected_lot = None
+
+    @rx.event
+    def handle_modal_open_change(self, open: bool):
+        self.is_modal_open = open
+        if not open:
+            self.selected_lot = None
 
     @rx.event
     def set_start_date(self, date: str):
@@ -530,6 +565,12 @@ class BookingState(rx.State):
         self.is_payment_modal_open = False
         self.is_processing_payment = False
 
+    @rx.event
+    def handle_payment_modal_open_change(self, open: bool):
+        self.is_payment_modal_open = open
+        if not open:
+            self.is_processing_payment = False
+
     def validate_payment(self) -> bool:
         """Validate payment form fields"""
         is_valid = True
@@ -721,6 +762,12 @@ class BookingState(rx.State):
         self.booking_to_cancel = None
 
     @rx.event
+    def handle_cancellation_modal_open_change(self, open: bool):
+        self.is_cancellation_modal_open = open
+        if not open:
+            self.booking_to_cancel = None
+
+    @rx.event
     async def confirm_cancellation(self):
         if not self.booking_to_cancel:
             return
@@ -780,3 +827,51 @@ class BookingState(rx.State):
             yield rx.toast.error("Failed to cancel booking.")
         self.is_cancellation_modal_open = False
         self.booking_to_cancel = None
+
+    @rx.event
+    def print_ticket(self, booking_id: str):
+        """Find booking and trigger client-side print"""
+        # Find the booking in the list
+        booking = next((b for b in self.bookings if b.id == booking_id), None)
+        if booking:
+            # Construct the JS call with concrete values
+            js_call = (
+                f"window.printTicket({{"
+                f"id: '{booking.id}', "
+                f"lot_name: '{booking.lot_name}', "
+                f"start_date: '{booking.start_date}', "
+                f"start_time: '{booking.start_time}', "
+                f"duration_hours: '{booking.duration_hours}', "
+                f"slot_id: '{booking.slot_id}', "
+                f"vehicle_number: '{booking.vehicle_number}', "
+                f"phone_number: '{booking.phone_number}', "
+                f"status: '{booking.status}', "
+                f"total_price: '{booking.total_price}'"
+                f"}})"
+            )
+            return rx.call_script(js_call)
+        else:
+            return rx.toast.error("Booking not found for printing.")
+
+    @rx.event
+    def download_word_ticket(self, booking_id: str):
+        """Find booking and trigger client-side word download"""
+        booking = next((b for b in self.bookings if b.id == booking_id), None)
+        if booking:
+            js_call = (
+                f"window.downloadWordTicket({{"
+                f"id: '{booking.id}', "
+                f"lot_name: '{booking.lot_name}', "
+                f"start_date: '{booking.start_date}', "
+                f"start_time: '{booking.start_time}', "
+                f"duration_hours: '{booking.duration_hours}', "
+                f"slot_id: '{booking.slot_id}', "
+                f"vehicle_number: '{booking.vehicle_number}', "
+                f"phone_number: '{booking.phone_number}', "
+                f"status: '{booking.status}', "
+                f"total_price: '{booking.total_price}'"
+                f"}})"
+            )
+            return rx.call_script(js_call)
+        else:
+            return rx.toast.error("Booking not found for download.")

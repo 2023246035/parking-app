@@ -136,7 +136,7 @@ def slot_card(slot_id: str, is_available: bool) -> rx.Component:
             ),
             class_name="flex flex-col items-center gap-1",
         ),
-        on_click=lambda: rx.cond(is_available, BookingState.select_slot(slot_id), rx.noop()),
+        on_click=BookingState.select_slot(slot_id),
         disabled=~is_available,
         class_name=rx.cond(
             BookingState.selected_slot == slot_id,
@@ -369,5 +369,5 @@ def booking_wizard_modal() -> rx.Component:
             class_name="bg-white rounded-2xl p-6 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto focus:outline-none",
         ),
         open=BookingState.is_modal_open,
-        on_open_change=lambda open: rx.cond(open, rx.noop(), BookingState.close_modal()),
+        on_open_change=BookingState.handle_modal_open_change,
     )

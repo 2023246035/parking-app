@@ -183,13 +183,13 @@ def refund_card(refund: dict) -> rx.Component:
             rx.el.button(
                 rx.icon("check", class_name="h-4 w-4 mr-2"),
                 "Approve & Process Refund",
-                on_click=lambda: AdminRefundsState.approve_refund(refund["id"], refund["refund_amount"]),
+                on_click=AdminRefundsState.approve_refund(refund["id"], refund["refund_amount"]),
                 class_name="flex items-center px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
             ),
             rx.el.button(
                 rx.icon("x", class_name="h-4 w-4 mr-2"),
                 "Reject",
-                on_click=lambda: AdminRefundsState.reject_refund(refund["id"]),
+                on_click=AdminRefundsState.reject_refund(refund["id"]),
                 class_name="flex items-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
             ),
             class_name="flex gap-3"

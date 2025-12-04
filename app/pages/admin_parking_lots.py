@@ -201,12 +201,12 @@ def parking_lot_row(lot: dict) -> rx.Component:
             rx.el.div(
                 rx.el.button(
                     "Edit",
-                    on_click=lambda: AdminParkingLotsState.open_edit_modal(lot),
+                    on_click=AdminParkingLotsState.open_edit_modal(lot),
                     class_name="text-sm text-blue-600 hover:text-blue-800 font-medium mr-4"
                 ),
                 rx.el.button(
                     "Delete",
-                    on_click=lambda: AdminParkingLotsState.delete_parking_lot(lot["id"]),
+                    on_click=AdminParkingLotsState.delete_parking_lot(lot["id"]),
                     class_name="text-sm text-red-600 hover:text-red-800 font-medium"
                 ),
                 class_name="flex items-center"

@@ -171,7 +171,7 @@ def user_row(user: dict) -> rx.Component:
         rx.el.td(
             rx.el.button(
                 "View Details",
-                on_click=lambda: AdminUsersState.view_user(user),
+                on_click=AdminUsersState.view_user(user),
                 class_name="text-sm text-blue-600 hover:text-blue-800 font-medium"
             ),
             class_name="px-6 py-4"

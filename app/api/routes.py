@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from sqlmodel import select
 from typing import Optional
 from datetime import datetime
@@ -6,10 +6,14 @@ import logging
 import reflex as rx
 from app.db.models import ParkingLot, Booking, User, AuditLog
 
+router = APIRouter(tags=["Parking API"])
 
+
+@router.get("/api/parking-lots", summary="Get all parking lots")
 async def get_parking_lots(
     location: Optional[str] = None, search: Optional[str] = None
 ):
+    """Retrieve all parking lots with optional filtering by location and search term."""
     with rx.session() as session:
         query = select(ParkingLot)
         if location and location != "All":
@@ -20,7 +24,9 @@ async def get_parking_lots(
         return [lot.to_dict() for lot in lots]
 
 
+@router.get("/api/parking-lots/{lot_id}", summary="Get parking lot by ID")
 async def get_parking_lot(lot_id: int):
+    """Retrieve a specific parking lot by its ID."""
     with rx.session() as session:
         lot = session.get(ParkingLot, lot_id)
         if not lot:
@@ -28,7 +34,9 @@ async def get_parking_lot(lot_id: int):
         return lot.to_dict()
 
 
+@router.put("/api/parking-lots/{lot_id}/availability", summary="Update availability")
 async def update_availability(lot_id: int, available_spots: int):
+    """Update the available spots for a parking lot."""
     with rx.session() as session:
         lot = session.get(ParkingLot, lot_id)
         if not lot:
@@ -40,7 +48,9 @@ async def update_availability(lot_id: int, available_spots: int):
         return lot.to_dict()
 
 
+@router.get("/api/bookings", summary="Get user bookings")
 async def get_bookings(user_email: str, status_filter: Optional[str] = None):
+    """Retrieve bookings for a specific user with optional status filter."""
     with rx.session() as session:
         user = session.exec(select(User).where(User.email == user_email)).first()
         if not user:
@@ -52,7 +62,9 @@ async def get_bookings(user_email: str, status_filter: Optional[str] = None):
         return [b.to_dict() for b in bookings]
 
 
+@router.post("/api/bookings", summary="Create a new booking")
 async def create_booking(data: dict):
+    """Create a new parking booking."""
     with rx.session() as session:
         required_fields = [
             "user_email",
@@ -104,7 +116,9 @@ async def create_booking(data: dict):
             raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/api/bookings/{booking_id}/cancel", summary="Cancel a booking")
 async def cancel_booking(booking_id: int):
+    """Cancel an existing booking and process refund."""
     with rx.session() as session:
         booking = session.get(Booking, booking_id)
         if not booking:

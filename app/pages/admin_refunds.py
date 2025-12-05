@@ -13,6 +13,14 @@ class AdminRefundsState(rx.State):
     pending_refunds: list[dict] = []
     is_loading: bool = False
     
+    # Rejection modal state
+    is_rejection_modal_open: bool = False
+    rejection_booking_id: int = 0
+    rejection_reason: str = ""
+    rejection_booking_display_id: str = ""
+    rejection_user_email: str = ""
+    rejection_user_name: str = ""
+    
     @rx.event
     async def load_pending_refunds(self):
         """Load all bookings with pending refund status"""
@@ -102,11 +110,31 @@ class AdminRefundsState(rx.State):
             yield rx.toast.error("Failed to approve refund")
     
     @rx.event
-    async def reject_refund(self, booking_id: int):
-        """Reject a refund request"""
+    def open_rejection_modal(self, refund: dict):
+        """Open modal to get rejection reason"""
+        self.rejection_booking_id = refund["id"]
+        self.rejection_booking_display_id = refund["booking_id"]
+        self.rejection_user_email = refund["user_email"]
+        self.rejection_user_name = refund["user_name"]
+        self.rejection_reason = ""
+        self.is_rejection_modal_open = True
+    
+    @rx.event
+    def close_rejection_modal(self):
+        """Close rejection modal"""
+        self.is_rejection_modal_open = False
+        self.rejection_reason = ""
+    
+    @rx.event
+    async def confirm_rejection(self):
+        """Confirm and process refund rejection with email notification"""
+        if not self.rejection_reason or self.rejection_reason.strip() == "":
+            yield rx.toast.error("Please provide a reason for rejection")
+            return
+        
         try:
             with rx.session() as session:
-                booking = session.get(DBBooking, booking_id)
+                booking = session.get(DBBooking, self.rejection_booking_id)
                 if not booking:
                     yield rx.toast.error("Booking not found")
                     return
@@ -118,22 +146,42 @@ class AdminRefundsState(rx.State):
                 # Update booking status
                 booking.refund_status = "Rejected"
                 booking.payment_status = "Cancelled (Refund Rejected)"
+                # Note: rejection_reason field needs to be added to DB schema
+                # For now, we'llstore it in cancellation_reason or add a comment in audit log
                 session.add(booking)
                 
-                # Create audit log
+                # Create audit log with rejection reason
                 audit = DBAuditLog(
                     action="Refund Rejected",
                     timestamp=datetime.now(),
-                    details=f"Admin rejected refund for booking {booking.id}",
+                    details=f"Admin rejected refund for booking {booking.id}. Reason: {self.rejection_reason}",
                     user_id=booking.user_id,
                 )
                 session.add(audit)
                 
                 session.commit()
                 
-                logging.info(f"Refund rejected for booking {booking.id}")
-                yield AdminRefundsState.load_pending_refunds
-                yield rx.toast.info("Refund request rejected")
+                logging.info(f"Refund rejected for booking {booking.id}: {self.rejection_reason}")
+            
+            # Send email notification to user
+            from app.services.email_service import send_refund_rejection_email
+            email_sent = send_refund_rejection_email(
+                email=self.rejection_user_email,
+                booking_id=self.rejection_booking_display_id,
+                reason=self.rejection_reason,
+                user_name=self.rejection_user_name
+            )
+            
+            if email_sent:
+                yield rx.toast.success(f"Refund rejected and user notified via email")
+            else:
+                yield rx.toast.warning("Refund rejected but email notification failed")
+            
+            # Close modal and reload
+            self.is_rejection_modal_open = False
+            self.rejection_reason = ""
+            yield AdminRefundsState.load_pending_refunds
+            
         except Exception as e:
             logging.exception(f"Error rejecting refund: {e}")
             yield rx.toast.error("Failed to reject refund")
@@ -189,13 +237,67 @@ def refund_card(refund: dict) -> rx.Component:
             rx.el.button(
                 rx.icon("x", class_name="h-4 w-4 mr-2"),
                 "Reject",
-                on_click=AdminRefundsState.reject_refund(refund["id"]),
+                on_click=AdminRefundsState.open_rejection_modal(refund),
                 class_name="flex items-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
             ),
             class_name="flex gap-3"
         ),
         
         class_name="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+    )
+
+
+def rejection_modal() -> rx.Component:
+    """Modal to collect rejection reason"""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title(
+                "Reject Refund Request",
+                class_name="text-xl font-bold text-gray-900 mb-4"
+            ),
+            rx.dialog.description(
+                f"You are rejecting refund for booking: {AdminRefundsState.rejection_booking_display_id}",
+                class_name="text-sm text-gray-600 mb-4"
+            ),
+            
+            # Rejection reason input
+            rx.el.div(
+                rx.el.label(
+                    "Reason for Rejection *",
+                    class_name="block text-sm font-medium text-gray-700 mb-2"
+                ),
+                rx.text_area(
+                    placeholder="Please provide a detailed reason for rejecting this refund request. This will be sent to the user via email.",
+                    value=AdminRefundsState.rejection_reason,
+                    on_change=AdminRefundsState.set_rejection_reason,
+                    rows="4",
+                    class_name="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                ),
+                class_name="mb-6"
+            ),
+            
+            # Action buttons
+            rx.el.div(
+                rx.dialog.close(
+                    rx.el.button(
+                        "Cancel",
+                        on_click=AdminRefundsState.close_rejection_modal,
+                        class_name="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                    ),
+                ),
+                rx.el.button(
+                    rx.icon("x-circle", class_name="h-4 w-4 mr-2"),
+                    "Confirm Rejection",
+                    on_click=AdminRefundsState.confirm_rejection,
+                    class_name="flex items-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+                ),
+                class_name="flex justify-end gap-3"
+            ),
+            
+            class_name="max-w-2xl"
+        ),
+        open=AdminRefundsState.is_rejection_modal_open,
+        on_open_change=AdminRefundsState.set_is_rejection_modal_open,
     )
 
 
@@ -261,6 +363,9 @@ def admin_refunds_page() -> rx.Component:
             
             class_name="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
         ),
+        
+        # Rejection Modal
+        rejection_modal(),
         
         class_name="min-h-screen bg-gray-50",
         on_mount=AdminRefundsState.load_pending_refunds,

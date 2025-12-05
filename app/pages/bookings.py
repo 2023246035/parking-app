@@ -123,19 +123,66 @@ window.downloadWordTicket = (data) => {
 };
 
 window.printTicket = (data) => {
+    console.log("=== printTicket called ===");
+    console.log("Data received:", data);
+    
     try {
         const html = generateTicketHtml(data, false);
-        const printWindow = window.open('', '_blank');
+        console.log("HTML generated successfully");
+        
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        console.log("Popup window opened:", !!printWindow);
+        
         if (printWindow) {
             printWindow.document.write(html);
             printWindow.document.close();
+            // Give time for content to load before printing
+            printWindow.focus();
+            console.log("✅ Print window created successfully");
         } else {
-            alert("Pop-up blocked. Please allow pop-ups to print ticket.");
+            // Fallback: Use iframe if popup is blocked
+            console.log("⚠️ Popup blocked, using iframe method");
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            
+            const iframeDoc = iframe.contentWindow.document;
+            iframeDoc.write(html);
+            iframeDoc.close();
+            
+            // Wait for content to load
+            iframe.onload = function() {
+                console.log("iframe loaded, triggering print");
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+                
+                // Remove iframe after printing
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                    console.log("iframe removed");
+                }, 1000);
+            };
+            
+            // Trigger onload manually if it doesn't fire
+            setTimeout(() => {
+                if (iframe.contentWindow) {
+                    console.log("Manual iframe print trigger");
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    setTimeout(() => {
+                        try { document.body.removeChild(iframe); } catch(e) {}
+                    }, 1000);
+                }
+            }, 500);
         }
     } catch (e) {
-        console.error("Error printing ticket:", e);
+        console.error("❌ Error printing ticket:", e);
+        alert("Failed to print ticket. Error: " + e.message + "\\nCheck console for details.");
     }
 };
+
+// Verify function is defined
+console.log("✅ window.printTicket defined:", typeof window.printTicket);
 """
 
 def payment_status_badge(status: str) -> rx.Component:
@@ -213,146 +260,199 @@ def generate_ticket_doc(booking: Booking) -> rx.Var:
 
 
 def booking_card(booking: Booking) -> rx.Component:
-    """Clean booking card with all details"""
+    """Refined simple and clean booking card"""
     return rx.el.div(
+        # Header with subtle background
         rx.el.div(
-            # Status badges
+            rx.el.div(
+                rx.el.h3(booking.lot_name, class_name="text-lg font-bold text-gray-900"),
+                rx.el.p(booking.lot_location, class_name="text-sm text-gray-600"),
+            ),
             rx.el.div(
                 booking_status_badge(booking.status),
                 payment_status_badge(booking.payment_status),
-                class_name="flex items-center justify-between mb-4"
+                class_name="flex gap-2"
             ),
-            
-            # Location
-            rx.el.h3(
-                booking.lot_name,
-                class_name="text-lg font-bold text-gray-900 mb-1"
-            ),
-            rx.el.p(
-                booking.lot_location,
-                class_name="text-sm text-gray-500 mb-4"
-            ),
-            
-            # Details grid with ALL information
-            rx.el.div(
-                # Date & Time
-                rx.el.div(
-                    rx.el.p("Date & Time", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(booking.start_date, class_name="text-sm font-semibold text-gray-900"),
-                    rx.el.p(f"at {booking.start_time}", class_name="text-xs text-gray-600"),
-                ),
-                
-                # Duration
-                rx.el.div(
-                    rx.el.p("Duration", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(f"{booking.duration_hours} Hours", class_name="text-sm font-semibold text-gray-900"),
-                ),
-                
-                # Slot
-                rx.el.div(
-                    rx.el.p("Slot", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(
-                        rx.cond(booking.slot_id != "", booking.slot_id, "N/A"),
-                        class_name="text-sm font-bold text-sky-600"
-                    ),
-                ),
-                
-                #Vehicle
-                rx.el.div(
-                    rx.el.p("Vehicle", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(
-                        rx.cond(booking.vehicle_number != "", booking.vehicle_number, "N/A"),
-                        class_name="text-sm font-mono font-semibold text-gray-900"
-                    ),
-                ),
-                
-                # Phone
-                rx.el.div(
-                    rx.el.p("Contact", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(
-                        rx.cond(booking.phone_number != "", booking.phone_number, "N/A"),
-                        class_name="text-sm text-gray-900"
-                    ),
-                ),
-                
-                # Booking ID  
-                rx.el.div(
-                    rx.el.p("Booking ID", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(booking.id, class_name="text-xs font-mono font-semibold text-gray-700"),
-                ),
-                
-                class_name="grid grid-cols-3 gap-4 mb-4 pb-4 border-b border-gray-100"
-            ),
-            
-            # Footer
-            rx.el.div(
-                rx.el.div(
-                    rx.el.p("Total Paid", class_name="text-xs text-gray-500 mb-1"),
-                    rx.el.p(f"RM {booking.total_price}", class_name="text-xl font-bold text-gray-900"),
-                ),
-                
-                # Action buttons
-                rx.el.div(
-                    # Print / PDF Ticket
-                    rx.el.button(
-                        rx.icon("printer", class_name="h-4 w-4 mr-1"),
-                        "Print / PDF",
-                        on_click=BookingState.print_ticket(booking.id),
-                        class_name="flex items-center text-sm font-medium text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg transition-colors mr-2"
-                    ),
-                    
-                    # Download Word Ticket
-                    rx.el.button(
-                        rx.icon("file-text", class_name="h-4 w-4 mr-1"),
-                        "Word",
-                        on_click=BookingState.download_word_ticket(booking.id),
-                        class_name="flex items-center text-sm font-medium text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg transition-colors mr-2"
-                    ),
-                    
-                    rx.cond(
-                        booking.status == "Confirmed",
-                        rx.el.button(
-                            "Cancel",
-                            on_click=BookingState.initiate_cancellation(booking),
-                            class_name="text-sm font-medium text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors"
-                        ),
-                    ),
-                    class_name="flex items-center"
-                ),
-                
-                class_name="flex items-end justify-between"
-            ),
+            class_name="flex items-start justify-between p-4 bg-gray-50 border-b border-gray-100"
         ),
         
-        class_name="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-gray-300 transition-all duration-300",
+        # Main info grid
+        rx.el.div(
+            # Date & Time
+            rx.el.div(
+                rx.el.p("DATE & TIME", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2"),
+                rx.el.div(
+                    rx.icon("calendar", class_name="h-4 w-4 text-indigo-600 mr-2 inline"),
+                    rx.el.span(booking.start_date, class_name="text-sm font-semibold text-gray-900"),
+                    class_name="mb-1"
+                ),
+                rx.el.div(
+                    rx.icon("clock", class_name="h-4 w-4 text-indigo-600 mr-2 inline"),
+                    rx.el.span(f"at {booking.start_time}", class_name="text-sm text-gray-700"),
+                ),
+            ),
+            
+            # Slot - Highlighted
+            rx.el.div(
+                rx.el.p("SLOT", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 text-center"),
+                rx.el.div(
+                    rx.el.p(
+                        rx.cond(booking.slot_id != "", booking.slot_id, "N/A"),
+                        class_name="text-xl font-black text-indigo-600"
+                    ),
+                    class_name="bg-indigo-50 rounded-lg py-2 px-4 text-center border border-indigo-100"
+                ),
+            ),
+            
+            # Duration
+            rx.el.div(
+                rx.el.p("DURATION", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 text-right"),
+                rx.el.p(f"{booking.duration_hours} Hours", class_name="text-lg font-semibold text-gray-900 text-right"),
+            ),
+            
+            class_name="grid grid-cols-3 gap-4 p-5 border-b border-gray-100 items-center"
+        ),
+        
+        # Additional details
+        rx.el.div(
+            rx.el.div(
+                rx.el.p("VEHICLE", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1"),
+                rx.el.p(
+                    rx.cond(booking.vehicle_number != "", booking.vehicle_number, "N/A"),
+                    class_name="text-sm font-mono font-semibold text-gray-900"
+                ),
+            ),
+            rx.el.div(
+                rx.el.p("CONTACT", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1"),
+                rx.el.p(
+                    rx.cond(booking.phone_number != "", booking.phone_number, "N/A"),
+                    class_name="text-sm font-medium text-gray-900"
+                ),
+            ),
+            rx.el.div(
+                rx.el.p("BOOKING ID", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1"),
+                rx.el.p(booking.id, class_name="text-sm font-mono font-semibold text-gray-500"),
+            ),
+            class_name="grid grid-cols-3 gap-4 p-5 border-b border-gray-100 bg-white"
+        ),
+        
+        # QR Code Section
+        rx.el.div(
+            rx.el.div(
+                rx.el.p("SCAN QR CODE", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2"),
+                rx.el.p("Present this at parking entrance", class_name="text-xs text-gray-500 mb-3"),
+            ),
+            # Show loader while generating, QR code when ready
+            rx.cond(
+                BookingState.is_generating_qr | (BookingState.qr_codes[booking.id] == ""),
+                # Loader
+                rx.el.div(
+                    rx.spinner(
+                        size="3",
+                        class_name="text-indigo-600"
+                    ),
+                    rx.el.p(
+                        "Generating QR...",
+                        class_name="text-xs text-gray-500 mt-2"
+                    ),
+                    class_name="w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50"
+                ),
+                # QR Code
+                rx.image(
+                    src=BookingState.qr_codes[booking.id],
+                    alt="Booking QR Code",
+                    class_name="w-32 h-32 border-2 border-gray-200 rounded-lg p-2 bg-white animate-fade-in"
+                ),
+            ),
+            class_name="flex items-center gap-4 p-5 border-b border-gray-100 bg-gray-50"
+        ),
+
+        
+        # Total and actions
+
+        rx.el.div(
+            rx.el.div(
+                rx.el.p("TOTAL PAID", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1"),
+                rx.el.p(f"RM {booking.total_price}", class_name="text-2xl font-bold text-green-600"),
+            ),
+            rx.el.div(
+                rx.el.button(
+                    rx.icon("printer", class_name="h-4 w-4 mr-2"),
+                    "Print",
+                    on_click=BookingState.print_ticket(booking.id),
+                    class_name="flex items-center text-sm font-medium text-gray-700 hover:text-indigo-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                ),
+                rx.el.button(
+                    rx.icon("share-2", class_name="h-4 w-4 mr-2"),
+                    "Share",
+                    on_click=BookingState.share_ticket(booking.id),
+                    class_name="flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                ),
+                rx.cond(
+                    booking.status == "Confirmed",
+                    rx.el.button(
+                        rx.icon("x-circle", class_name="h-4 w-4 mr-2"),
+                        "Cancel",
+                        on_click=BookingState.initiate_cancellation(booking),
+                        class_name="flex items-center text-sm font-medium text-red-600 hover:text-red-700 bg-white hover:bg-red-50 border border-red-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    ),
+                ),
+                class_name="flex gap-2"
+            ),
+            class_name="flex items-center justify-between p-5 bg-gray-50 rounded-b-lg"
+        ),
+        
+        class_name="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200",
         key=booking.id,
     )
 
 
-def empty_state(title: str, message: str) -> rx.Component:
-    """Clean empty state"""
+def empty_state(title: str, message: str, show_cta: bool = True) -> rx.Component:
+    """Enhanced empty state with better design"""
     return rx.el.div(
         rx.el.div(
+            # Icon
             rx.el.div(
-                "📋",
-                class_name="text-6xl mb-4"
+                rx.icon("calendar-x", class_name="w-20 h-20 text-gray-300"),
+                class_name="mb-6"
             ),
+            
+            # Title
             rx.el.h3(
                 title,
-                class_name="text-xl font-bold text-gray-900 mb-2"
+                class_name="text-2xl font-bold text-gray-900 mb-3"
             ),
+            
+            # Message
             rx.el.p(
                 message,
-                class_name="text-gray-600 mb-6"
+                class_name="text-gray-600 mb-8 max-w-md mx-auto text-lg"
             ),
-           rx.el.a(
-                "Find Parking →",
-                href="/listings",
-                class_name="inline-block px-6 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
+            
+            # Actions
+            rx.cond(
+                show_cta,
+                rx.el.div(
+                    rx.el.a(
+                        rx.icon("search", class_name="w-5 h-5 mr-2"),
+                        "Browse Parking Lots",
+                        href="/listings",
+                        class_name="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all"
+                    ),
+                    rx.el.a(
+                        "How It Works →",
+                        href="/how-it-works",
+                        class_name="inline-block px-6 py-3 text-indigo-600 font-semibold hover:underline ml-4"
+                    ),
+                    class_name="flex gap-4 justify-center"
+                ),
             ),
-            class_name="flex flex-col items-center justify-center py-16 text-center"
+            
+            class_name="flex flex-col items-center justify-center py-20 text-center"
         ),
+        class_name="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300"
     )
+
 
 
 def bookings_page() -> rx.Component:
@@ -403,7 +503,7 @@ def bookings_page() -> rx.Component:
                             BookingState.active_bookings.length() > 0,
                             rx.el.div(
                                 rx.foreach(BookingState.active_bookings, booking_card),
-                                class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                                class_name="grid grid-cols-1 md:grid-cols-2 gap-6"
                             ),
                             empty_state(
                                 "No Active Bookings",
@@ -418,7 +518,7 @@ def bookings_page() -> rx.Component:
                             BookingState.past_bookings.length() > 0,
                             rx.el.div(
                                 rx.foreach(BookingState.past_bookings, booking_card),
-                                class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                                class_name="grid grid-cols-1 md:grid-cols-2 gap-6"
                             ),
                             empty_state(
                                 "No Past Bookings",
@@ -433,7 +533,7 @@ def bookings_page() -> rx.Component:
                             BookingState.cancelled_bookings.length() > 0,
                             rx.el.div(
                                 rx.foreach(BookingState.cancelled_bookings, booking_card),
-                                class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                                class_name="grid grid-cols-1 md:grid-cols-2 gap-6"
                             ),
                             empty_state(
                                 "No Cancelled Bookings",
@@ -453,8 +553,13 @@ def bookings_page() -> rx.Component:
         
         cancellation_modal(),
         footer(),
-        rx.script(TICKET_JS),
         
         class_name="font-['Roboto'] min-h-screen flex flex-col",
-        on_mount=AuthState.check_login,
+        on_mount=[
+            AuthState.check_login,
+            BookingState.generate_qr_codes,  # Generate QR codes on page load
+            rx.call_script(TICKET_JS),  # Inject JavaScript on page load
+        ],
     )
+
+

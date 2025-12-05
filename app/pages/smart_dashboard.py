@@ -52,6 +52,105 @@ class SmartDashboardState(rx.State):
     form_slot: str = ""
     available_slots: List[str] = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "B4", "B5"] # Simplified slots
     
+    # Validation error messages
+    error_location: str = ""
+    error_days: str = ""
+    error_time: str = ""
+    error_duration: str = ""
+    error_vehicle: str = ""
+    error_phone: str = ""
+    error_slot: str = ""
+    
+    # Validation methods
+    def validate_location_and_days(self) -> bool:
+        """Validate location and days selection"""
+        is_valid = True
+        
+        # Validate location
+        if not self.form_location or self.form_location.strip() == "":
+            self.error_location = "Please select a parking location"
+            is_valid = False
+        else:
+            self.error_location = ""
+        
+        # Validate days
+        if not self.form_days or len(self.form_days) == 0:
+            self.error_days = "Please select at least one day"
+            is_valid = False
+        else:
+            self.error_days = ""
+        
+        return is_valid
+    
+    def validate_time_and_duration(self) -> bool:
+        """Validate time and duration"""
+        is_valid = True
+        
+        # Validate time
+        if not self.form_time or self.form_time.strip() == "":
+            self.error_time = "Please select a time"
+            is_valid = False
+        else:
+            self.error_time = ""
+        
+        # Validate duration
+        try:
+            duration = int(self.form_duration)
+            if duration <= 0:
+                self.error_duration = "Duration must be at least 1 hour"
+                is_valid = False
+            elif duration > 24:
+                self.error_duration = "Duration cannot exceed 24 hours"
+                is_valid = False
+            else:
+                self.error_duration = ""
+        except (ValueError, TypeError):
+            self.error_duration = "Please enter a valid duration"
+            is_valid = False
+        
+        return is_valid
+    
+    def validate_vehicle_and_phone(self) -> bool:
+        """Validate vehicle and phone"""
+        is_valid = True
+        
+        # Validate vehicle
+        if not self.form_vehicle or self.form_vehicle.strip() == "":
+            self.error_vehicle = "Vehicle number is required"
+            is_valid = False
+        elif len(self.form_vehicle.replace(" ", "").replace("-", "")) < 3:
+            self.error_vehicle = "Vehicle number must be at least 3 characters"
+            is_valid = False
+        else:
+            self.error_vehicle = ""
+        
+        # Validate phone
+        if not self.form_phone or self.form_phone.strip() == "":
+            self.error_phone = "Phone number is required"
+            is_valid = False
+        else:
+            clean_phone = self.form_phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "").replace("+", "")
+            if not clean_phone.isdigit():
+                self.error_phone = "Phone number must contain only digits"
+                is_valid = False
+            elif len(clean_phone) < 10:
+                self.error_phone = "Phone number must be at least 10 digits"
+                is_valid = False
+            else:
+                self.error_phone = ""
+        
+        return is_valid
+    
+    def validate_slot(self) -> bool:
+        """Validate slot selection"""
+        if not self.form_slot or self.form_slot.strip() == "":
+            self.error_slot = "Please select a parking slot"
+            return False
+        else:
+            self.error_slot = ""
+            return True
+    
+
     @rx.event
     def on_load(self):
         """Load rules from database on page load and process them"""
@@ -274,7 +373,24 @@ class SmartDashboardState(rx.State):
     # Wizard Step Navigation
     @rx.event
     def next_rule_step(self):
-        """Move to next step in the wizard"""
+        """Move to next step in the wizard - validates current step first"""
+        # Validate current step before proceeding
+        if self.rule_wizard_step == 1:
+            # Step 1: Validate location and days
+            if not self.validate_location_and_days():
+                return  # Stay on step 1 if validation fails
+        
+        elif self.rule_wizard_step == 2:
+            # Step 2: Validate time and duration
+            if not self.validate_time_and_duration():
+                return  # Stay on step 2 if validation fails
+        
+        elif self.rule_wizard_step == 3:
+            # Step 3: Validate vehicle and phone
+            if not self.validate_vehicle_and_phone():
+                return  # Stay on step 3 if validation fails
+        
+        # If validation passed, move to next step
         if self.rule_wizard_step < 4:
             self.rule_wizard_step += 1
     
@@ -516,6 +632,14 @@ def rule_step_1_location_days() -> rx.Component:
                 size="3",
                 class_name="w-full"
             ),
+            # Error message for location
+            rx.cond(
+                SmartDashboardState.error_location != "",
+                rx.el.p(
+                    SmartDashboardState.error_location,
+                    class_name="text-sm text-red-600 mt-1"
+                ),
+            ),
             class_name="mb-6"
         ),
         
@@ -541,6 +665,14 @@ def rule_step_1_location_days() -> rx.Component:
                     )
                 ),
                 class_name="grid grid-cols-4 gap-2"
+            ),
+            # Error message for days
+            rx.cond(
+                SmartDashboardState.error_days != "",
+                rx.el.p(
+                    SmartDashboardState.error_days,
+                    class_name="text-sm text-red-600 mt-2"
+                ),
             ),
             class_name="mb-8"
         ),

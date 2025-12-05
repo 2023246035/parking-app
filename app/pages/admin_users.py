@@ -109,6 +109,11 @@ def admin_navbar() -> rx.Component:
                         class_name="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
                     ),
                     rx.el.a(
+                        "Analytics",
+                        href="/admin/analytics",
+                        class_name="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
+                    ),
+                    rx.el.a(
                         "Users",
                         href="/admin/users",
                         class_name="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"

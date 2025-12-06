@@ -16,6 +16,10 @@ class AdminUsersState(rx.State):
     selected_user: dict = {}
     user_bookings: list[dict] = []
     
+    # Delete Confirmation State
+    show_delete_confirm: bool = False
+    user_to_delete: dict = {}
+    
     @rx.event
     async def load_users(self):
         """Load all users from database"""
@@ -90,6 +94,46 @@ class AdminUsersState(rx.State):
     @rx.event
     def close_modal(self):
         self.show_modal = False
+    
+    @rx.event
+    def confirm_delete_user(self, user: dict):
+        """Show delete confirmation dialog"""
+        self.user_to_delete = user
+        self.show_delete_confirm = True
+    
+    @rx.event
+    def cancel_delete(self):
+        """Cancel delete operation"""
+        self.show_delete_confirm = False
+        self.user_to_delete = {}
+    
+    @rx.event
+    async def delete_user(self):
+        """Delete user from database"""
+        try:
+            user_id = self.user_to_delete.get("id")
+            if not user_id:
+                return
+            
+            with rx.session() as session:
+                user = session.get(DBUser, user_id)
+                if user:
+                    user_email = user.email
+                    session.delete(user)
+                    session.commit()
+                    print(f"✅ User {user_email} (ID: {user_id}) deleted successfully")
+                    
+                    # Close dialog and reload users
+                    self.show_delete_confirm = False
+                    self.user_to_delete = {}
+                    await self.load_users()
+                else:
+                    print(f"❌ User with ID {user_id} not found")
+                    
+        except Exception as e:
+            print(f"❌ Error deleting user: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 def admin_navbar() -> rx.Component:
@@ -174,10 +218,18 @@ def user_row(user: dict) -> rx.Component:
             class_name="px-6 py-4"
         ),
         rx.el.td(
-            rx.el.button(
-                "View Details",
-                on_click=AdminUsersState.view_user(user),
-                class_name="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            rx.el.div(
+                rx.el.button(
+                    "View",
+                    on_click=AdminUsersState.view_user(user),
+                    class_name="text-sm text-blue-600 hover:text-blue-800 font-medium mr-3"
+                ),
+                rx.el.button(
+                    "Delete",
+                    on_click=AdminUsersState.confirm_delete_user(user),
+                    class_name="text-sm text-red-600 hover:text-red-800 font-medium"
+                ),
+                class_name="flex items-center gap-2"
             ),
             class_name="px-6 py-4"
         ),
@@ -274,6 +326,66 @@ def user_details_modal() -> rx.Component:
     )
 
 
+def delete_confirmation_dialog() -> rx.Component:
+    """Confirmation dialog for deleting users"""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title(
+                "⚠️ Delete User",
+                class_name="text-2xl font-bold text-red-600 mb-4"
+            ),
+            
+            rx.el.div(
+                # Warning message
+                rx.el.div(
+                    rx.icon("alert-triangle", class_name="w-12 h-12 text-red-500 mx-auto mb-4"),
+                    rx.el.p(
+                        "Are you sure you want to delete this user?",
+                        class_name="text-lg font-semibold text-gray-900 text-center mb-2"
+                    ),
+                    rx.el.p(
+                        f"User: {AdminUsersState.user_to_delete['name']}",
+                        class_name="text-gray-700 text-center mb-1"
+                    ),
+                    rx.el.p(
+                        f"Email: {AdminUsersState.user_to_delete['email']}",
+                        class_name="text-gray-600 text-center mb-4"
+                    ),
+                    rx.el.div(
+                        rx.el.p(
+                            "⚠️ This action cannot be undone!",
+                            class_name="text-red-600 font-semibold text-center"
+                        ),
+                        rx.el.p(
+                            "All user data and bookings will be permanently deleted.",
+                            class_name="text-sm text-gray-600 text-center mt-1"
+                        ),
+                        class_name="bg-red-50 border border-red-200 rounded-lg p-3 mt-4"
+                    ),
+                ),
+                
+                # Action buttons
+                rx.el.div(
+                    rx.el.button(
+                        "Cancel",
+                        on_click=AdminUsersState.cancel_delete,
+                        class_name="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold"
+                    ),
+                    rx.el.button(
+                        "Delete User",
+                        on_click=AdminUsersState.delete_user,
+                        class_name="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"
+                    ),
+                    class_name="flex gap-3 mt-6"
+                ),
+            ),
+            class_name="max-w-md"
+        ),
+        open=AdminUsersState.show_delete_confirm,
+        on_open_change=AdminUsersState.cancel_delete,
+    )
+
+
 def admin_users_page() -> rx.Component:
     """Admin users management page"""
     return rx.el.div(
@@ -346,6 +458,7 @@ def admin_users_page() -> rx.Component:
         ),
         
         user_details_modal(),
+        delete_confirmation_dialog(),
         
         class_name="font-['Roboto']",
         on_mount=AdminUsersState.load_users,

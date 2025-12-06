@@ -138,6 +138,30 @@ async def cancel_booking(booking_id: int):
             session.add(lot)
         try:
             session.commit()
+            session.refresh(booking)
+            
+            # Send cancellation confirmation email
+            try:
+                from app.services.email_service import send_cancellation_confirmation_email
+                user = session.get(User, booking.user_id)
+                
+                booking_details = {
+                    "user_name": user.full_name if user else "Customer",
+                    "lot_name": lot.name if lot else "Parking Lot",
+                    "start_date": booking.start_date,
+                    "start_time": booking.start_time,
+                    "slot_id": booking.slot_id or "N/A",
+                    "vehicle_number": booking.vehicle_number or "N/A",
+                    "total_price": booking.total_price,
+                    "refund_message": f"A refund of ${refund_amount:.2f} will be processed within 5-7 business days."
+                }
+                
+                if user and user.email:
+                    send_cancellation_confirmation_email(user.email, booking_details)
+                    logging.info(f"Cancellation email sent to {user.email}")
+            except Exception as email_error:
+                logging.error(f"Failed to send cancellation email: {email_error}")
+            
             return {"message": "Booking cancelled", "refund_amount": refund_amount}
         except Exception as e:
             logging.exception(f"Error cancelling booking: {e}")

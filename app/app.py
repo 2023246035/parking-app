@@ -24,6 +24,7 @@ from app.states.user_state import UserState
 from app.states.auth_state import AuthState
 from app.states.admin_state import AdminState
 from app.api.routes import router as api_router
+from app.services.notification_service import start_scheduler
 
 
 
@@ -32,6 +33,7 @@ class AppState(rx.State):
     def on_load(self):
         try:
             init_db()
+            start_scheduler()
         except Exception as e:
             logging.exception(f"Error initializing DB: {e}")
 

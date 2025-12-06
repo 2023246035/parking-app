@@ -101,6 +101,26 @@ class AdminRefundsState(rx.State):
                 session.add(audit)
                 
                 session.commit()
+                session.refresh(booking)
+                
+                # Send refund approval email
+                try:
+                    from app.services.email_service import send_refund_approval_email
+                    user = booking.user
+                    
+                    refund_details = {
+                        "user_name": user.full_name if user else "Customer",
+                        "booking_id": f"BK-{booking.id}",
+                        "refund_amount": refund_amount,
+                        "booking_date": booking.start_date,
+                        "original_amount": booking.total_price
+                    }
+                    
+                    if user and user.email:
+                        send_refund_approval_email(user.email, refund_details)
+                        logging.info(f"Refund approval email sent to {user.email}")
+                except Exception as email_error:
+                    logging.error(f"Failed to send refund approval email: {email_error}")
                 
                 logging.info(f"Refund approved for booking {booking.id}: RM {refund_amount:.2f}")
                 yield AdminRefundsState.load_pending_refunds

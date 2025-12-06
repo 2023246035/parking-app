@@ -98,6 +98,7 @@ class Booking(SQLModel, table=True):
     lot_id: int = Field(foreign_key="parkinglot.id")
     parking_lot: Optional[ParkingLot] = Relationship(back_populates="bookings")
     payment: Optional["Payment"] = Relationship(back_populates="booking")
+    reminder_sent: bool = Field(default=False)
 
     def to_dict(self):
         return {

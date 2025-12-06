@@ -775,7 +775,17 @@ class BookingState(rx.State):
     async def process_payment(self):
         # STEP 1: Validate ALL booking fields first
         if not self.validate_all_booking_fields():
-            yield rx.toast.error("Please fill in all required fields correctly")
+            # Collect specific errors to show the user
+            error_details = []
+            if self.error_date: error_details.append(f"Date: {self.error_date}")
+            if self.error_time: error_details.append(f"Time: {self.error_time}")
+            if self.error_duration: error_details.append(f"Duration: {self.error_duration}")
+            if self.error_slot: error_details.append(f"Slot: {self.error_slot}")
+            if self.error_vehicle: error_details.append(f"Vehicle: {self.error_vehicle}")
+            if self.error_phone: error_details.append(f"Phone: {self.error_phone}")
+            
+            error_msg = " • ".join(error_details) if error_details else "Please check your inputs."
+            yield rx.toast.error(f"Correction Needed: {error_msg}")
             return
         
         # STEP 2: Validate payment fields
@@ -851,6 +861,37 @@ class BookingState(rx.State):
                 )
                 session.add(new_audit)
                 session.commit()
+
+                # Send Confirmation Email
+                try:
+                    from app.services.email_service import send_booking_confirmation_email, send_payment_success_email
+                    booking_details = {
+                        "user_name": user.full_name or "User",
+                        "lot_name": lot.name,
+                        "start_date": self.start_date,
+                        "start_time": self.start_time,
+                        "duration": self.duration_hours,
+                        "slot_id": self.selected_slot,
+                        "vehicle_number": self.vehicle_number,
+                        "total_price": self.estimated_price,
+                        "payment_status": "Paid"
+                    }
+                    send_booking_confirmation_email(user.email, booking_details)
+                    
+                    # Send Payment Receipt
+                    payment_details = {
+                        "user_name": user.full_name or "User",
+                        "amount": self.estimated_price,
+                        "transaction_id": transaction_id,
+                        "payment_date": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                        "payment_method": "Credit Card",
+                        "booking_id": f"BK-{new_booking.id}"
+                    }
+                    send_payment_success_email(user.email, payment_details)
+                    logging.info(f"Booking confirmation and payment receipt sent to {user.email}")
+                except Exception as e:
+                    logging.exception(f"Failed to send confirmation/receipt emails: {e}")
+
                 from app.states.parking_state import ParkingState
 
                 parking_state = await self.get_state(ParkingState)

@@ -280,6 +280,19 @@ A **comprehensive parking management system** built with Reflex (Python) that al
 - ✅ Timestamp & user tracking
 - ✅ Detailed action descriptions
 
+### 8. **Analytics Dashboard** (`/admin/analytics`) ⭐ *New*
+- ✅ **Real-time Data Visualization:**
+  - Bookings trend (Line chart, last 7 days)
+  - Revenue trend (Bar chart, last 7 days)
+- ✅ **Parking Lot Performance:**
+  - Occupancy rates
+  - Total bookings per lot
+  - Revenue per lot
+- ✅ **Refund Metrics:**
+  - Total refunds count
+  - Total refund amount
+  - Refund rate percentage
+
 ---
 
 ## 🔒 SECURITY FEATURES
@@ -605,8 +618,7 @@ parking-app/
 6. **Reviews & Ratings** (User feedback)
 7. **Dynamic Pricing** (Peak hours, demand-based)
 8. **Multi-language Support** (i18n)
-9. **Analytics Dashboard** (Usage statistics)
-10. **REST API Exposure** (For third-party integration)
+9. **REST API Exposure** (For third-party integration)
 
 ---
 

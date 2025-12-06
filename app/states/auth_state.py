@@ -115,6 +115,19 @@ class AuthState(rx.State):
                 )
                 session.add(new_user)
                 session.commit()
+                session.refresh(new_user)
+                
+                # Send welcome email
+                try:
+                    from app.services.email_service import send_welcome_email
+                    user_details = {
+                        "full_name": new_user.name
+                    }
+                    send_welcome_email(new_user.email, user_details)
+                    logging.info(f"Welcome email sent to {new_user.email}")
+                except Exception as email_error:
+                    logging.error(f"Failed to send welcome email: {email_error}")
+                
                 self.is_authenticated = True
                 self.session_email = self.email
                 self.is_loading = False

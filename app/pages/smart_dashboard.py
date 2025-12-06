@@ -211,20 +211,47 @@ class SmartDashboardState(rx.State):
                     ).first()
 
                     if not existing_booking:
+                        final_slot_id = rule.slot_id or "A1"
+                        
                         # Check for slot conflict
-                        if rule.slot_id:
-                            slot_conflict = session.exec(
-                                select(DBBooking)
-                                .where(DBBooking.lot_id == lot.id)
-                                .where(DBBooking.start_date == tomorrow_date_str)
-                                .where(DBBooking.start_time == rule.time)
-                                .where(DBBooking.slot_id == rule.slot_id)
-                                .where(DBBooking.status != "Cancelled")
-                            ).first()
+                        conflict_query = select(DBBooking).where(
+                            DBBooking.lot_id == lot.id,
+                            DBBooking.start_date == tomorrow_date_str,
+                            DBBooking.start_time == rule.time,
+                            DBBooking.slot_id == final_slot_id,
+                            DBBooking.status != "Cancelled"
+                        )
+                        slot_conflict = session.exec(conflict_query).first()
+                        
+                        if slot_conflict:
+                            # Smart Slot Substitution
+                            # yield rx.toast.info(f"Slot {final_slot_id} occupied. Finding alternative...")
                             
-                            if slot_conflict:
-                                yield rx.toast.warning(f"Skipped {rule.location}: Slot {rule.slot_id} unavailable.")
+                            # Get all occupied slots for this time block
+                            occupied_query = select(DBBooking.slot_id).where(
+                                DBBooking.lot_id == lot.id,
+                                DBBooking.start_date == tomorrow_date_str,
+                                DBBooking.start_time == rule.time,
+                                DBBooking.status != "Cancelled"
+                            )
+                            occupied_slots = session.exec(occupied_query).all()
+                            
+                            # Standard slots (matching UI)
+                            standard_slots = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "B4", "B5"]
+                            
+                            alternative_found = False
+                            for s in standard_slots:
+                                if s not in occupied_slots:
+                                    final_slot_id = s
+                                    alternative_found = True
+                                    break
+                            
+                            if not alternative_found:
+                                yield rx.toast.warning(f"Skipped {rule.location}: All slots full.")
                                 continue
+                            else:
+                                # Prepare notification about change (in real app, send email)
+                                pass
 
                         # Create Booking
                         duration = int(rule.duration.split(" ")[0])
@@ -240,7 +267,7 @@ class SmartDashboardState(rx.State):
                             status="Confirmed",
                             payment_status="Paid (Auto)",
                             created_at=datetime.now(),
-                            slot_id=rule.slot_id or "AUTO-A1",
+                            slot_id=final_slot_id,
                             vehicle_number=rule.vehicle_number or "AUTO-CAR",
                             phone_number=rule.phone_number or user.phone or "N/A"
                         )
@@ -251,6 +278,25 @@ class SmartDashboardState(rx.State):
                         session.add(rule)
                         
                         bookings_created += 1
+                        
+                        # Prepare email notification
+                        try:
+                            from app.services.email_service import send_booking_confirmation_email
+                            booking_details = {
+                                "user_name": user.full_name or "User",
+                                "lot_name": lot.name,
+                                "start_date": tomorrow_date_str,
+                                "start_time": rule.time,
+                                "duration": duration,
+                                "slot_id": final_slot_id,
+                                "vehicle_number": rule.vehicle_number or "AUTO-CAR",
+                                "total_price": total_price,
+                                "payment_status": "Paid (Auto)"
+                            }
+                            # Send immediately (safe enough for now, ideally background task)
+                            send_booking_confirmation_email(user.email, booking_details)
+                        except Exception as e:
+                            print(f"Failed to queue email: {e}")
             
             if bookings_created > 0:
                 session.commit()

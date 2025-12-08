@@ -39,6 +39,12 @@ class BookingState(rx.State):
     refund_amount_display: float = 0.0
     refund_percentage: int = 0
     cancellation_message: str = ""
+    user_cancellation_reason: str = ""  # User's reason for cancelling
+    # Reschedule variables
+    is_reschedule_modal_open: bool = False
+    booking_to_reschedule: Optional[Booking] = None
+    new_start_date: str = ""
+    new_start_time: str = ""
     # New slot booking variables
     booking_step: int = 1
     selected_slot: str = ""
@@ -48,6 +54,7 @@ class BookingState(rx.State):
     occupied_slots: list[str] = []
     qr_codes: dict[str, str] = {}  # Store QR codes by booking ID
     is_generating_qr: bool = False  # Loading state for QR generation
+    expanded_refund_details: dict[str, bool] = {}  # Track which booking's refund details are expanded
     
     # Payment form fields
     card_number: str = ""
@@ -195,14 +202,9 @@ class BookingState(rx.State):
             self.error_phone = "Phone number must contain only digits"
             return False
         
-        # Check minimum length (international standard)
-        if len(clean_phone) < 10:
-            self.error_phone = "Phone number must be at least 10 digits"
-            return False
-        
-        # Check maximum length
-        if len(clean_phone) > 15:
-            self.error_phone = "Phone number cannot exceed 15 digits"
+        # Check exact length of 10 digits
+        if len(clean_phone) != 10:
+            self.error_phone = "Phone number must be exactly 10 digits"
             return False
         
         return True
@@ -416,7 +418,7 @@ class BookingState(rx.State):
                         refund_status=b.refund_status or "",
                         refund_approved_at=b.refund_approved_at.isoformat() if b.refund_approved_at else "",
                         cancellation_reason=b.cancellation_reason or "",
-                        cancellation_at=b.cancellation_at.isoformat()
+                        cancellation_at=b.cancellation_at.strftime("%d-%b-%Y %I:%M:%S %p")
                         if b.cancellation_at
                         else "",
                         slot_id=b.slot_id or "",
@@ -730,7 +732,7 @@ class BookingState(rx.State):
             self.error_payment_card = "Card number must be 16 digits."
             is_valid = False
 
-        # Validate Expiry
+        # Validate Expiry - Must be MM/YY format
         if not self.card_expiry:
             self.error_payment_expiry = "Expiry date is required."
             is_valid = False
@@ -738,9 +740,27 @@ class BookingState(rx.State):
             try:
                 if "/" not in self.card_expiry:
                     raise ValueError
-                month, year = self.card_expiry.split("/")
-                month = int(month)
-                year = int(year) + 2000  # Assume YY format
+                    
+                parts = self.card_expiry.split("/")
+                if len(parts) != 2:
+                    raise ValueError
+                    
+                month_str, year_str = parts
+                
+                # Check MM format (2 digits)
+                if len(month_str) != 2 or not month_str.isdigit():
+                    self.error_payment_expiry = "Month must be 2 digits (MM)."
+                    is_valid = False
+                    raise ValueError
+                
+                # Check YY format (2 digits)
+                if len(year_str) != 2 or not year_str.isdigit():
+                    self.error_payment_expiry = "Year must be 2 digits (YY)."
+                    is_valid = False
+                    raise ValueError
+                
+                month = int(month_str)
+                year = int(year_str) + 2000  # Convert YY to YYYY
                 
                 now = datetime.now()
                 current_year = now.year
@@ -753,15 +773,19 @@ class BookingState(rx.State):
                     self.error_payment_expiry = "Card has expired."
                     is_valid = False
             except ValueError:
-                self.error_payment_expiry = "Invalid format (MM/YY)."
+                if not self.error_payment_expiry:  # Only set if not already set
+                    self.error_payment_expiry = "Invalid format. Use MM/YY (e.g., 12/25)."
                 is_valid = False
 
-        # Validate CVC
-        if not self.card_cvc.isdigit():
+        # Validate CVC - Must be exactly 3 digits
+        if not self.card_cvc:
+            self.error_payment_cvc = "CVC is required."
+            is_valid = False
+        elif not self.card_cvc.isdigit():
             self.error_payment_cvc = "CVC must be numeric."
             is_valid = False
-        elif not (3 <= len(self.card_cvc) <= 4):
-            self.error_payment_cvc = "CVC must be 3 or 4 digits."
+        elif len(self.card_cvc) != 3:
+            self.error_payment_cvc = "CVC must be exactly 3 digits."
             is_valid = False
 
         # Validate Name
@@ -946,6 +970,7 @@ class BookingState(rx.State):
     def close_cancellation_modal(self):
         self.is_cancellation_modal_open = False
         self.booking_to_cancel = None
+        self.user_cancellation_reason = ""  # Reset reason
 
     @rx.event
     def handle_cancellation_modal_open_change(self, open: bool):
@@ -981,7 +1006,7 @@ class BookingState(rx.State):
                 else:
                     booking.payment_status = "Cancelled (No Refund)"
                 
-                booking.cancellation_reason = "User requested via web"
+                booking.cancellation_reason = self.user_cancellation_reason.strip() or "User requested cancellation"
                 booking.cancellation_at = datetime.now()
                 session.add(booking)
                 
@@ -1013,6 +1038,7 @@ class BookingState(rx.State):
             yield rx.toast.error("Failed to cancel booking.")
         self.is_cancellation_modal_open = False
         self.booking_to_cancel = None
+        self.user_cancellation_reason = ""  # Reset reason
 
     @rx.event
     def print_ticket(self, booking_id: str):
@@ -1109,6 +1135,116 @@ class BookingState(rx.State):
         
         self.is_generating_qr = False
     
+    
     def get_qr_code(self, booking_id: str) -> str:
         """Get QR code from cache"""
         return self.qr_codes.get(booking_id, "")
+    
+    def toggle_refund_details(self, booking_id: str):
+        """Toggle refund details visibility for a booking"""
+        current_state = self.expanded_refund_details.get(booking_id, False)
+        self.expanded_refund_details[booking_id] = not current_state
+    
+    def set_card_expiry(self, value: str):
+        """Format expiry date as MM/YY - auto-insert / after 2 digits"""
+        # Remove any existing slashes
+        cleaned = value.replace("/", "")
+        
+        # Only allow digits
+        cleaned = ''.join(c for c in cleaned if c.isdigit())
+        
+        # Limit to 4 digits max (MMYY)
+        cleaned = cleaned[:4]
+        
+        # Auto-insert / after 2 digits
+        if len(cleaned) >= 2:
+            formatted = cleaned[:2] + "/" + cleaned[2:]
+        else:
+            formatted = cleaned
+        
+        # Store the formatted value
+        self.card_expiry = formatted
+    
+    def set_card_cvc(self, value: str):
+        """Limit CVC to exactly 3 digits"""
+        # Only allow digits
+        cleaned = ''.join(c for c in value if c.isdigit())
+        
+        # Limit to 3 digits
+        self.card_cvc = cleaned[:3]
+    
+    def can_reschedule_booking(self, booking: Booking) -> bool:
+        """Check if a booking can be rescheduled (24+ hours before start)"""
+        try:
+            from datetime import datetime
+            booking_start = datetime.strptime(
+                f"{booking.start_date} {booking.start_time}",
+                "%Y-%m-%d %H:%M"
+            )
+            time_until = booking_start - datetime.now()
+            hours_until = time_until.total_seconds() / 3600
+            return hours_until >= 24
+        except Exception:
+            return False
+    
+    def initiate_reschedule(self, booking: Booking):
+        """Open reschedule modal with current booking details"""
+        self.booking_to_reschedule = booking
+        self.new_start_date = booking.start_date
+        self.new_start_time = booking.start_time
+        self.is_reschedule_modal_open = True
+    
+    def close_reschedule_modal(self):
+        """Close reschedule modal and reset"""
+        self.is_reschedule_modal_open = False
+        self.booking_to_reschedule = None
+        self.new_start_date = ""
+        self.new_start_time = ""
+    
+    @rx.event
+    async def confirm_reschedule(self):
+        """Confirm booking time change"""
+        if not self.booking_to_reschedule:
+            return
+        
+        try:
+            # Validate new time is at least 24 hours away
+            from datetime import datetime, timedelta
+            new_booking_time = datetime.strptime(
+                f"{self.new_start_date} {self.new_start_time}",
+                "%Y-%m-%d %H:%M"
+            )
+            time_until = new_booking_time - datetime.now()
+            
+            if time_until.total_seconds() < 24 * 3600:
+                yield rx.toast.error("New booking time must be at least 24 hours from now.")
+                return
+            
+            db_id = int(self.booking_to_reschedule.id.replace("BK-", ""))
+            
+            with rx.session() as session:
+                from app.db.models import Booking as DBBooking
+                booking = session.get(DBBooking, db_id)
+                
+                if not booking:
+                    yield rx.toast.error("Booking not found.")
+                    return
+                
+                # Update booking time
+                old_date = booking.start_date
+                old_time = booking.start_time
+                booking.start_date = self.new_start_date
+                booking.start_time = self.new_start_time
+                
+                session.add(booking)
+                session.commit()
+                
+                yield rx.toast.success(f"Booking rescheduled from {old_date} {old_time} to {self.new_start_date} {self.new_start_time}")
+                yield BookingState.load_bookings
+                
+        except Exception as e:
+            logging.exception(f"Reschedule failed: {e}")
+            yield rx.toast.error("Failed to reschedule booking.")
+        
+        self.close_reschedule_modal()
+

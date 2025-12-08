@@ -2,6 +2,7 @@ import reflex as rx
 from app.components.navbar import navbar
 from app.components.footer import footer
 from app.components.cancellation_modal import cancellation_modal
+from app.components.reschedule_modal import reschedule_modal
 from app.states.booking_state import BookingState, Booking
 from app.states.auth_state import AuthState
 
@@ -259,7 +260,391 @@ def generate_ticket_doc(booking: Booking) -> rx.Var:
     )
 
 
-def booking_card(booking: Booking) -> rx.Component:
+def booking_card_with_actions(booking: Booking) -> rx.Component:
+    """Booking card with all actions including cancel button (for Active tab)"""
+    return rx.el.div(
+        # Header with subtle background
+        rx.el.div(
+            rx.el.div(
+                rx.el.h3(booking.lot_name, class_name="text-lg font-bold text-gray-900"),
+                rx.el.p(booking.lot_location, class_name="text-sm text-gray-600"),
+            ),
+            rx.el.span(
+                booking.status,
+                class_name=rx.cond(
+                    booking.status == "Confirmed",
+                    "px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold",
+                    rx.cond(
+                        booking.status == "Cancelled",
+                        "px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold",
+                        "px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold",
+                    ),
+                ),
+            ),
+            class_name="flex items-center justify-between p-5 border-b border-gray-100",
+        ),
+        
+        # Booking Details in Grid
+        rx.el.div(
+            # Column 1 - Time Info
+            rx.el.div(
+                rx.el.div(
+                    rx.icon("calendar", class_name="w-4 h-4 text-gray-400 mr-2"),
+                    rx.el.span(booking.start_date, class_name="text-sm text-gray-900"),
+                    class_name="flex items-center mb-2"
+                ),
+                rx.el.div(
+                    rx.icon("clock", class_name="w-4 h-4 text-gray-400 mr-2"),
+                    rx.el.span(booking.start_time, class_name="text-sm text-gray-900"),
+                    class_name="flex items-center mb-2"
+                ),
+                rx.el.div(
+                    rx.icon("hourglass", class_name="w-4 h-4 text-gray-400 mr-2"),
+                    rx.el.span(f"{booking.duration_hours} hours", class_name="text-sm text-gray-900"),
+                    class_name="flex items-center"
+                ),
+            ),
+            
+            # Column 2 - Booking Details
+            rx.el.div(
+                rx.cond(
+                    booking.slot_id != "",
+                    rx.el.div(
+                        rx.icon("square-parking", class_name="w-4 h-4 text-gray-400 mr-2"),
+                        rx.el.span(f"Slot {booking.slot_id}", class_name="text-sm text-gray-900"),
+                        class_name="flex items-center mb-2"
+                    ),
+                ),
+                rx.cond(
+                    booking.vehicle_number != "",
+                    rx.el.div(
+                        rx.icon("car", class_name="w-4 h-4 text-gray-400 mr-2"),
+                        rx.el.span(booking.vehicle_number, class_name="text-sm text-gray-900"),
+                        class_name="flex items-center mb-2"
+                    ),
+                ),
+                rx.cond(
+                    booking.phone_number != "",
+                    rx.el.div(
+                        rx.icon("phone", class_name="w-4 h-4 text-gray-400 mr-2"),
+                        rx.el.span(booking.phone_number, class_name="text-sm text-gray-900"),
+                        class_name="flex items-center"
+                    ),
+                ),
+            ),
+            
+            class_name="grid grid-cols-2 gap-6 p-5 border-b border-gray-100"
+        ),
+        
+        # QR Code Section
+        rx.el.div(
+            rx.el.h4(
+                "Parking Ticket",
+                class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3"
+            ),
+            rx.cond(
+                ~BookingState.qr_codes.contains(booking.id),
+                # Loading State
+                rx.el.div(
+                    rx.spinner(
+                        size="3",
+                        class_name="text-indigo-600"
+                    ),
+                    rx.el.p(
+                        "Generating QR...",
+                        class_name="text-xs text-gray-500 mt-2"
+                    ),
+                    class_name="w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50"
+                ),
+                # QR Code
+                rx.image(
+                    src=BookingState.qr_codes[booking.id],
+                    alt="Booking QR Code",
+                    class_name="w-32 h-32 border-2 border-gray-200 rounded-lg p-2 bg-white animate-fade-in"
+                ),
+            ),
+            class_name="flex items-center gap-4 p-5 border-b border-gray-100 bg-gray-50"
+        ),
+
+        
+        # Total and actions
+        rx.el.div(
+            rx.el.div(
+                rx.el.p("TOTAL PAID", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1"),
+                rx.el.p(f"RM {booking.total_price}", class_name="text-2xl font-bold text-green-600"),
+            ),
+            rx.el.div(
+                rx.el.button(
+                    rx.icon("printer", class_name="h-4 w-4"),
+                    rx.el.span("Print", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
+                    on_click=BookingState.print_ticket(booking.id),
+                    class_name="group flex items-center justify-center text-sm font-medium text-gray-700 hover:text-indigo-600 bg-white hover:bg-gray-50 border border-gray-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3"
+                ),
+                rx.el.button(
+                    rx.icon("share-2", class_name="h-4 w-4"),
+                    rx.el.span("Share", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
+                    on_click=BookingState.share_ticket(booking.id),
+                    class_name="group flex items-center justify-center text-sm font-medium text-gray-700 hover:text-blue-600 bg-white hover:bg-gray-50 border border-gray-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3"
+                ),
+                rx.link(
+                    rx.el.div(
+                        rx.icon("map-pin", class_name="h-4 w-4"),
+                        rx.el.span("Directions", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
+                        class_name="group flex items-center justify-center text-sm font-medium text-gray-700 hover:text-green-600 bg-white hover:bg-gray-50 border border-gray-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3 cursor-pointer"
+                    ),
+                    href=f"https://www.google.com/maps/dir/?api=1&destination={booking.lot_location.replace(' ', '+')}",
+                    is_external=True,
+                ),
+                rx.cond(
+                    (booking.status == "Confirmed") & BookingState.can_reschedule_booking(booking),
+                    rx.el.button(
+                        rx.icon("clock", class_name="h-4 w-4"),
+                        rx.el.span("Change Time", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
+                        on_click=BookingState.initiate_reschedule(booking),
+                        class_name="group flex items-center justify-center text-sm font-medium text-purple-600 hover:text-purple-700 bg-white hover:bg-purple-50 border border-purple-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3"
+                    ),
+                ),
+                rx.cond(
+                    booking.status == "Confirmed",
+                    rx.el.button(
+                        rx.icon("x-circle", class_name="h-4 w-4"),
+                        rx.el.span("Cancel", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
+                        on_click=BookingState.initiate_cancellation(booking),
+                        class_name="group flex items-center justify-center text-sm font-medium text-red-600 hover:text-red-700 bg-white hover:bg-red-50 border border-red-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3"
+                    ),
+                ),
+                class_name="flex flex-wrap gap-2 justify-end"
+            ),
+            class_name="flex items-center justify-between p-5 bg-gray-50 rounded-b-lg"
+        ),
+        
+        class_name="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200",
+        key=booking.id,
+    )
+
+
+def booking_card_readonly(booking: Booking) -> rx.Component:
+    """Booking card without cancel button (for Past and Cancelled tabs)"""
+    return rx.el.div(
+        # Header with subtle background
+        rx.el.div(
+            rx.el.div(
+                rx.el.h3(booking.lot_name, class_name="text-lg font-bold text-gray-900"),
+                rx.el.p(booking.lot_location, class_name="text-sm text-gray-600"),
+            ),
+            rx.el.span(
+                booking.status,
+                class_name=rx.cond(
+                    booking.status == "Confirmed",
+                    "px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold",
+                    rx.cond(
+                        booking.status == "Cancelled",
+                        "px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold",
+                        "px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold",
+                    ),
+                ),
+            ),
+            class_name="flex items-center justify-between p-5 border-b border-gray-100",
+        ),
+        
+        # Booking Details in Grid
+        rx.el.div(
+            # Column 1 - Time Info
+            rx.el.div(
+                rx.el.div(
+                    rx.icon("calendar", class_name="w-4 h-4 text-gray-400 mr-2"),
+                    rx.el.span(booking.start_date, class_name="text-sm text-gray-900"),
+                    class_name="flex items-center mb-2"
+                ),
+                rx.el.div(
+                    rx.icon("clock", class_name="w-4 h-4 text-gray-400 mr-2"),
+                    rx.el.span(booking.start_time, class_name="text-sm text-gray-900"),
+                    class_name="flex items-center mb-2"
+                ),
+                rx.el.div(
+                    rx.icon("hourglass", class_name="w-4 h-4 text-gray-400 mr-2"),
+                    rx.el.span(f"{booking.duration_hours} hours", class_name="text-sm text-gray-900"),
+                    class_name="flex items-center"
+                ),
+            ),
+            
+            # Column 2 - Booking Details
+            rx.el.div(
+                rx.cond(
+                    booking.slot_id != "",
+                    rx.el.div(
+                        rx.icon("square-parking", class_name="w-4 h-4 text-gray-400 mr-2"),
+                        rx.el.span(f"Slot {booking.slot_id}", class_name="text-sm text-gray-900"),
+                        class_name="flex items-center mb-2"
+                    ),
+                ),
+                rx.cond(
+                    booking.vehicle_number != "",
+                    rx.el.div(
+                        rx.icon("car", class_name="w-4 h-4 text-gray-400 mr-2"),
+                        rx.el.span(booking.vehicle_number, class_name="text-sm text-gray-900"),
+                        class_name="flex items-center mb-2"
+                    ),
+                ),
+                rx.cond(
+                    booking.phone_number != "",
+                    rx.el.div(
+                        rx.icon("phone", class_name="w-4 h-4 text-gray-400 mr-2"),
+                        rx.el.span(booking.phone_number, class_name="text-sm text-gray-900"),
+                        class_name="flex items-center"
+                    ),
+                ),
+            ),
+            
+            class_name="grid grid-cols-2 gap-6 p-5 border-b border-gray-100"
+        ),
+        
+        # Refund Details Section (only for cancelled bookings) - COLLAPSIBLE
+        rx.cond(
+            booking.status == "Cancelled",
+            rx.el.div(
+                # Toggle Button
+                rx.el.button(
+                    rx.el.div(
+                        rx.icon("info", class_name="w-4 h-4 mr-2"),
+                        rx.el.span("Refund Information", class_name="text-sm font-semibold"),
+                        rx.cond(
+                            BookingState.expanded_refund_details.get(booking.id, False),
+                            rx.icon("chevron-up", class_name="w-4 h-4 ml-auto"),
+                            rx.icon("chevron-down", class_name="w-4 h-4 ml-auto"),
+                        ),
+                        class_name="flex items-center w-full"
+                    ),
+                    on_click=BookingState.toggle_refund_details(booking.id),
+                    class_name="w-full p-4 bg-blue-50 hover:bg-blue-100 transition-colors border-b border-blue-100 text-left"
+                ),
+                
+                # Collapsible Details
+                rx.cond(
+                    BookingState.expanded_refund_details.get(booking.id, False),
+                    rx.el.div(
+                        # Refund Amount
+                        rx.el.div(
+                            rx.el.div(
+                                rx.icon("dollar-sign", class_name="w-4 h-4 text-blue-500 mr-2"),
+                                rx.el.span("Refund Amount:", class_name="text-xs text-gray-500 font-medium"),
+                                class_name="flex items-center mb-1"
+                            ),
+                            rx.el.p(
+                                f"RM {booking.refund_amount}",
+                                class_name="text-lg font-bold text-blue-600 ml-6"
+                            ),
+                        ),
+                        
+                        # Refund Status
+                        rx.el.div(
+                            rx.el.div(
+                                rx.icon("info", class_name="w-4 h-4 text-gray-400 mr-2"),
+                                rx.el.span("Status:", class_name="text-xs text-gray-500 font-medium"),
+                                class_name="flex items-center mb-1 mt-3"
+                            ),
+                            rx.cond(
+                                booking.refund_status == "Approved",
+                                rx.el.span(
+                                    "✓ Approved",
+                                    class_name="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm font-semibold ml-6"
+                                ),
+                                rx.cond(
+                                    booking.refund_status == "Pending",
+                                    rx.el.span(
+                                        "⏳ Pending Review",
+                                        class_name="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-md text-sm font-semibold ml-6"
+                                    ),
+                                    rx.cond(
+                                        booking.refund_status == "Rejected",
+                                        rx.el.span(
+                                            "✗ Rejected",
+                                            class_name="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm font-semibold ml-6"
+                                        ),
+                                        rx.el.span(
+                                            "N/A",
+                                            class_name="px-3 py-1 bg-gray-100 text-gray-600 rounded-md text-sm ml-6"
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        
+                        # Cancellation Time
+                        rx.cond(
+                            booking.cancellation_at != "",
+                            rx.el.div(
+                                rx.el.div(
+                                    rx.icon("clock", class_name="w-4 h-4 text-gray-400 mr-2"),
+                                    rx.el.span("Cancelled At:", class_name="text-xs text-gray-500 font-medium"),
+                                    class_name="flex items-center mb-1 mt-3"
+                                ),
+                                rx.el.p(
+                                    booking.cancellation_at,
+                                    class_name="text-sm text-gray-700 ml-6"
+                                ),
+                            ),
+                        ),
+                        
+                        # Cancellation Reason
+                        rx.cond(
+                            booking.cancellation_reason != "",
+                            rx.el.div(
+                                rx.el.div(
+                                    rx.icon("message-square", class_name="w-4 h-4 text-gray-400 mr-2"),
+                                    rx.el.span("Reason:", class_name="text-xs text-gray-500 font-medium"),
+                                    class_name="flex items-center mb-1 mt-3"
+                                ),
+                                rx.el.p(
+                                    booking.cancellation_reason,
+                                    class_name="text-sm text-gray-700 ml-6 italic"
+                                ),
+                            ),
+                        ),
+                        
+                        class_name="p-5 space-y-2 bg-blue-50 border-b border-blue-100 animate-fade-in"
+                    ),
+                ),
+            ),
+        ),
+        
+        # Total and actions (NO CANCEL BUTTON)
+        rx.el.div(
+            rx.el.div(
+                rx.el.p("TOTAL PAID", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1"),
+                rx.el.p(f"RM {booking.total_price}", class_name="text-2xl font-bold text-green-600"),
+            ),
+            rx.el.div(
+                rx.el.button(
+                    rx.icon("printer", class_name="h-4 w-4 mr-2"),
+                    "Print",
+                    on_click=BookingState.print_ticket(booking.id),
+                    class_name="flex items-center text-sm font-medium text-gray-700 hover:text-indigo-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                ),
+                rx.el.button(
+                    rx.icon("share-2", class_name="h-4 w-4 mr-2"),
+                    "Share",
+                    on_click=BookingState.share_ticket(booking.id),
+                    class_name="flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                ),
+                rx.link(
+                    rx.el.button(
+                        rx.icon("map-pin", class_name="h-4 w-4 mr-2"),
+                        "Directions",
+                        class_name="flex items-center text-sm font-medium text-gray-700 hover:text-green-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    ),
+                    href=f"https://www.google.com/maps/dir/?api=1&destination={booking.lot_location.replace(' ', '+')}",
+                    is_external=True,
+                ),
+                # NO CANCEL BUTTON HERE!
+                class_name="flex gap-2"
+            ),
+            class_name="flex items-center justify-between p-5 bg-gray-50 rounded-b-lg"
+        ),
+        
+        class_name="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200",
+        key=booking.id,
+    )
     """Refined simple and clean booking card"""
     return rx.el.div(
         # Header with subtle background
@@ -388,8 +773,16 @@ def booking_card(booking: Booking) -> rx.Component:
                     on_click=BookingState.share_ticket(booking.id),
                     class_name="flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
                 ),
+                rx.el.button(
+                    rx.icon("map-pin", class_name="h-4 w-4 mr-2"),
+                    "Directions",
+                    on_click=rx.call_script(
+                        f"window.open('https://www.google.com/maps/search/?api=1&query={booking.lot_location.replace(' ', '+')}', '_blank')"
+                    ),
+                    class_name="flex items-center text-sm font-medium text-gray-700 hover:text-green-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                ),
                 rx.cond(
-                    booking.status == "Confirmed",
+                    (booking.status == "Confirmed") & (booking.is_future),
                     rx.el.button(
                         rx.icon("x-circle", class_name="h-4 w-4 mr-2"),
                         "Cancel",
@@ -502,7 +895,7 @@ def bookings_page() -> rx.Component:
                         rx.cond(
                             BookingState.active_bookings.length() > 0,
                             rx.el.div(
-                                rx.foreach(BookingState.active_bookings, booking_card),
+                                rx.foreach(BookingState.active_bookings, booking_card_with_actions),
                                 class_name="grid grid-cols-1 md:grid-cols-2 gap-6"
                             ),
                             empty_state(
@@ -517,7 +910,7 @@ def bookings_page() -> rx.Component:
                         rx.cond(
                             BookingState.past_bookings.length() > 0,
                             rx.el.div(
-                                rx.foreach(BookingState.past_bookings, booking_card),
+                                rx.foreach(BookingState.past_bookings, booking_card_readonly),
                                 class_name="grid grid-cols-1 md:grid-cols-2 gap-6"
                             ),
                             empty_state(
@@ -532,7 +925,7 @@ def bookings_page() -> rx.Component:
                         rx.cond(
                             BookingState.cancelled_bookings.length() > 0,
                             rx.el.div(
-                                rx.foreach(BookingState.cancelled_bookings, booking_card),
+                                rx.foreach(BookingState.cancelled_bookings, booking_card_readonly),
                                 class_name="grid grid-cols-1 md:grid-cols-2 gap-6"
                             ),
                             empty_state(
@@ -552,6 +945,7 @@ def bookings_page() -> rx.Component:
         ),
         
         cancellation_modal(),
+        reschedule_modal(),
         footer(),
         
         class_name="font-['Roboto'] min-h-screen flex flex-col",

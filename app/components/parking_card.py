@@ -139,6 +139,15 @@ def parking_card(lot: ParkingLot) -> rx.Component:
                         class_name="flex items-baseline",
                     ),
                     rx.el.div(
+                        rx.link(
+                            rx.el.button(
+                                rx.icon("map-pin", class_name="w-5 h-5"),
+                                class_name="p-2.5 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 hover:scale-105 transition-all duration-200 mr-2",
+                                title="Get Directions"
+                            ),
+                            href=f"https://www.google.com/maps/dir/?api=1&destination={lot.location.replace(' ', '+')}",
+                            is_external=True,
+                        ),
                         rx.el.button(
                             rx.icon("bot", class_name="w-5 h-5"),
                             on_click=rx.redirect(f"/chatbot?query=Tell me about {lot.name}"),

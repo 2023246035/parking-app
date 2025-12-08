@@ -66,3 +66,59 @@ class Booking(rx.Base):
     slot_id: str = ""
     vehicle_number: str = ""
     phone_number: str = ""
+    
+    @property
+    def is_future(self) -> bool:
+        """Check if booking end time is in the future"""
+        try:
+            from datetime import datetime, timedelta
+            # Parse booking start time
+            booking_start = datetime.strptime(
+                f"{self.start_date} {self.start_time}", 
+                "%Y-%m-%d %H:%M"
+            )
+            # Calculate end time
+            booking_end = booking_start + timedelta(hours=self.duration_hours)
+            # Check if end time is in the future
+            return booking_end > datetime.now()
+        except Exception:
+            # If parsing fails, consider it not future
+            return False
+    
+    @property
+    def formatted_cancellation_at(self) -> str:
+        """Format cancellation timestamp as dd-mmm-yyyy hh:mm:ss AM/PM"""
+        if not self.cancellation_at or self.cancellation_at == "":
+            return ""
+        
+        try:
+            from datetime import datetime
+            # Try parsing ISO format
+            if "T" in self.cancellation_at:
+                dt = datetime.fromisoformat(self.cancellation_at.replace("Z", "+00:00"))
+            else:
+                # Try standard format
+                dt = datetime.strptime(self.cancellation_at, "%Y-%m-%d %H:%M:%S")
+            
+            # Format as dd-mmm-yyyy hh:mm:ss AM/PM
+            return dt.strftime("%d-%b-%Y %I:%M:%S %p")
+        except Exception:
+            # If parsing fails, return original
+            return self.cancellation_at
+    
+    @property
+    def is_reschedulable(self) -> bool:
+        """Check if booking can be rescheduled (24+ hours before start time)"""
+        try:
+            from datetime import datetime, timedelta
+            # Parse booking start time
+            booking_start = datetime.strptime(
+                f"{self.start_date} {self.start_time}", 
+                "%Y-%m-%d %H:%M"
+            )
+            # Check if booking is 24+ hours away
+            time_until_booking = booking_start - datetime.now()
+            return time_until_booking.total_seconds() >= 24 * 3600  # 24 hours in seconds
+        except Exception:
+            # If parsing fails, don't allow rescheduling
+            return False

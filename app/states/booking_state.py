@@ -55,6 +55,40 @@ class BookingState(rx.State):
     qr_codes: dict[str, str] = {}  # Store QR codes by booking ID
     is_generating_qr: bool = False  # Loading state for QR generation
     expanded_refund_details: dict[str, bool] = {}  # Track which booking's refund details are expanded
+    expanded_qr_codes: dict[str, bool] = {}  # Track which QR codes are expanded
+    
+    @rx.var
+    def reschedulable_booking_ids(self) -> list[str]:
+        """Return list of booking IDs that can be rescheduled (>24 hours away)"""
+        from datetime import datetime
+        import logging
+        
+        reschedulable_ids = []
+        
+        for booking in self.active_bookings:
+            try:
+                # Parse booking start time
+                booking_start = datetime.strptime(
+                    f"{booking.start_date} {booking.start_time}",
+                    "%Y-%m-%d %H:%M"
+                )
+                
+                # Calculate hours until booking
+                time_until = booking_start - datetime.now()
+                hours_until = time_until.total_seconds() / 3600
+                
+                # Must be MORE than 24 hours
+                if hours_until > 24.0:
+                    reschedulable_ids.append(booking.id)
+                    logging.info(f"✅ Booking {booking.id} ({booking.start_date} {booking.start_time}) is reschedulable: {hours_until:.2f} hours")
+                else:
+                    logging.info(f"❌ Booking {booking.id} ({booking.start_date} {booking.start_time}) NOT reschedulable: {hours_until:.2f} hours")
+                    
+            except Exception as e:
+                logging.error(f"Error checking booking {booking.id}: {e}")
+                continue
+        
+        return reschedulable_ids
     
     # Payment form fields
     card_number: str = ""
@@ -1145,6 +1179,11 @@ class BookingState(rx.State):
         current_state = self.expanded_refund_details.get(booking_id, False)
         self.expanded_refund_details[booking_id] = not current_state
     
+    def toggle_qr_code(self, booking_id: str):
+        """Toggle QR code visibility for a booking"""
+        current_state = self.expanded_qr_codes.get(booking_id, False)
+        self.expanded_qr_codes[booking_id] = not current_state
+    
     def set_card_expiry(self, value: str):
         """Format expiry date as MM/YY - auto-insert / after 2 digits"""
         # Remove any existing slashes
@@ -1174,17 +1213,28 @@ class BookingState(rx.State):
         self.card_cvc = cleaned[:3]
     
     def can_reschedule_booking(self, booking: Booking) -> bool:
-        """Check if a booking can be rescheduled (24+ hours before start)"""
+        """Check if a booking can be rescheduled (MORE than 24 hours before start)"""
         try:
             from datetime import datetime
+            
+            # Parse booking start datetime
             booking_start = datetime.strptime(
                 f"{booking.start_date} {booking.start_time}",
                 "%Y-%m-%d %H:%M"
             )
-            time_until = booking_start - datetime.now()
+            
+            # Get current time
+            current_time = datetime.now()
+            
+            # Calculate time difference
+            time_until = booking_start - current_time
             hours_until = time_until.total_seconds() / 3600
-            return hours_until >= 24
-        except Exception:
+            
+            # Must be MORE than 24 hours (not equal to)
+            return hours_until > 24.0
+            
+        except Exception as e:
+            # If any error, don't allow rescheduling
             return False
     
     def initiate_reschedule(self, booking: Booking):

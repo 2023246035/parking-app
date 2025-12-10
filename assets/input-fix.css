@@ -1,0 +1,31 @@
+/* Force white backgrounds on all input fields */
+input[type="email"],
+input[type="password"],
+input[type="text"],
+textarea,
+select {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+}
+
+/* Specific override for Reflex inputs */
+input.transition-all {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+}
+
+/* Force white on focus too */
+input:focus,
+textarea:focus,
+select:focus {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+}
+
+/* Override any Reflex theme colors */
+[data-theme] input,
+[data-theme] textarea,
+[data-theme] select {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+}

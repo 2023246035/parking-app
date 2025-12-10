@@ -108,17 +108,29 @@ class Booking(rx.Base):
     
     @property
     def is_reschedulable(self) -> bool:
-        """Check if booking can be rescheduled (24+ hours before start time)"""
+        """Check if booking can be rescheduled (MORE than 24 hours before start time)"""
         try:
-            from datetime import datetime, timedelta
+            from datetime import datetime
+            import logging
+            
             # Parse booking start time
             booking_start = datetime.strptime(
                 f"{self.start_date} {self.start_time}", 
                 "%Y-%m-%d %H:%M"
             )
-            # Check if booking is 24+ hours away
-            time_until_booking = booking_start - datetime.now()
-            return time_until_booking.total_seconds() >= 24 * 3600  # 24 hours in seconds
-        except Exception:
+            # Check if booking is MORE than 24 hours away (not equal to)
+            current_time = datetime.now()
+            time_until_booking = booking_start - current_time
+            hours_until = time_until_booking.total_seconds() / 3600
+            
+            result = hours_until > 24.0
+            
+            # Debug logging
+            logging.info(f"Booking {self.id}: {self.start_date} {self.start_time} | Hours until: {hours_until:.2f} | Reschedulable: {result}")
+            
+            return result  # Strict > instead of >=
+        except Exception as e:
+            import logging
+            logging.error(f"Error checking is_reschedulable for booking {self.id}: {e}")
             # If parsing fails, don't allow rescheduling
             return False

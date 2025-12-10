@@ -2,7 +2,7 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlmodel import Session, create_engine, select
 from datetime import datetime, timedelta
-from app.db.models import Booking, User, ParkingLot
+from app.db.models import Booking, User, ParkingLot, BookingRule
 from app.services.email_service import send_booking_reminder_email
 import os
 
@@ -85,12 +85,152 @@ def check_upcoming_bookings():
     except Exception as e:
         logging.error(f"Scheduler error: {e}")
 
+
+def process_auto_booking_rules():
+    """Automatically process booking rules and create bookings for tomorrow."""
+    DATABASE_URL = "sqlite:///reflex.db"
+    
+    try:
+        engine = create_engine(DATABASE_URL)
+        
+        with Session(engine) as session:
+            tomorrow = datetime.now() + timedelta(days=1)
+            tomorrow_day_name = tomorrow.strftime("%a")  # Mon, Tue, etc.
+            tomorrow_date_str = tomorrow.strftime("%Y-%m-%d")
+            
+            # Get all active rules
+            rules = session.exec(
+                select(BookingRule).where(BookingRule.status == "Active")
+            ).all()
+            
+            bookings_created = 0
+            
+            for rule in rules:
+                try:
+                    # Check if rule applies to tomorrow
+                    rule_days = rule.days.split(",")
+                    if tomorrow_day_name not in rule_days:
+                        continue
+                    
+                    # Parse location string "Name - Location"
+                    try:
+                        lot_name, lot_loc = rule.location.split(" - ", 1)
+                        lot = session.exec(
+                            select(ParkingLot)
+                            .where(ParkingLot.name == lot_name)
+                            .where(ParkingLot.location == lot_loc)
+                        ).first()
+                    except ValueError:
+                        logging.warning(f"Invalid location format for rule {rule.id}: {rule.location}")
+                        continue
+                    
+                    if not lot:
+                        logging.warning(f"Parking lot not found for rule {rule.id}: {rule.location}")
+                        continue
+                    
+                    # Check if booking already exists
+                    existing_booking = session.exec(
+                        select(Booking)
+                        .where(Booking.user_id == rule.user_id)
+                        .where(Booking.lot_id == lot.id)
+                        .where(Booking.start_date == tomorrow_date_str)
+                        .where(Booking.start_time == rule.time)
+                        .where(Booking.status != "Cancelled")
+                    ).first()
+                    
+                    if existing_booking:
+                        continue  # Skip if booking already exists
+                    
+                    final_slot_id = rule.slot_id or "A1"
+                    
+                    # Check for slot conflict
+                    conflict_query = select(Booking).where(
+                        Booking.lot_id == lot.id,
+                        Booking.start_date == tomorrow_date_str,
+                        Booking.start_time == rule.time,
+                        Booking.slot_id == final_slot_id,
+                        Booking.status != "Cancelled"
+                    )
+                    slot_conflict = session.exec(conflict_query).first()
+                    
+                    if slot_conflict:
+                        # Smart Slot Substitution
+                        logging.info(f"Slot {final_slot_id} occupied for rule {rule.id}. Finding alternative...")
+                        
+                        # Get all occupied slots for this time block
+                        occupied_query = select(Booking.slot_id).where(
+                            Booking.lot_id == lot.id,
+                            Booking.start_date == tomorrow_date_str,
+                            Booking.start_time == rule.time,
+                            Booking.status != "Cancelled"
+                        )
+                        occupied_slots = [s for s in session.exec(occupied_query).all()]
+                        
+                        # Standard slots
+                        standard_slots = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "B4", "B5"]
+                        
+                        alternative_found = False
+                        for s in standard_slots:
+                            if s not in occupied_slots:
+                                final_slot_id = s
+                                alternative_found = True
+                                logging.info(f"Found alternative slot {s} for rule {rule.id}")
+                                break
+                        
+                        if not alternative_found:
+                            logging.warning(f"Skipped rule {rule.id} for {rule.location}: All slots full")
+                            continue
+                    
+                    # Create Booking
+                    duration = int(rule.duration.split(" ")[0])
+                    total_price = lot.price_per_hour * duration
+                    
+                    new_booking = Booking(
+                        lot_id=lot.id,
+                        user_id=rule.user_id,
+                        start_date=tomorrow_date_str,
+                        start_time=rule.time,
+                        duration_hours=duration,
+                        total_price=total_price,
+                        status="Confirmed",
+                        payment_status="Paid (Auto)",
+                        created_at=datetime.now(),
+                        slot_id=final_slot_id,
+                        vehicle_number=rule.vehicle_number or "",
+                        phone_number=rule.phone_number or "",
+                        reminder_sent=False
+                    )
+                    
+                    session.add(new_booking)
+                    bookings_created += 1
+                    logging.info(f"✅ Auto-created booking for rule {rule.id}: {lot.name} on {tomorrow_date_str} at {rule.time}")
+                    
+                except Exception as e:
+                    logging.error(f"Error processing rule {rule.id}: {e}")
+                    continue
+            
+            if bookings_created > 0:
+                session.commit()
+                logging.info(f"🤖 Auto-booking: Created {bookings_created} bookings for tomorrow")
+            else:
+                logging.info("🤖 Auto-booking: No new bookings needed")
+                
+    except Exception as e:
+        logging.error(f"Auto-booking scheduler error: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     if not scheduler.running:
+        # Email reminders every 5 minutes
         scheduler.add_job(check_upcoming_bookings, 'interval', minutes=5)
+        
+        # Auto-booking processing every hour (runs at minute 0 of every hour)
+        scheduler.add_job(process_auto_booking_rules, 'cron', hour='*', minute=0)
+        
         try:
             scheduler.start()
             logging.info("📅 Notification Scheduler started.")
+            logging.info("🤖 Auto-booking Scheduler started (runs hourly).")
         except Exception as e:
             logging.error(f"Failed to start scheduler: {e}")

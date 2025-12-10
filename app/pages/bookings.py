@@ -261,147 +261,204 @@ def generate_ticket_doc(booking: Booking) -> rx.Var:
 
 
 def booking_card_with_actions(booking: Booking) -> rx.Component:
-    """Booking card with all actions including cancel button (for Active tab)"""
+    """Booking card with minimal spacing and collapsible QR code"""
     return rx.el.div(
-        # Header with subtle background
+        # Compact Header with gradient
         rx.el.div(
             rx.el.div(
-                rx.el.h3(booking.lot_name, class_name="text-lg font-bold text-gray-900"),
-                rx.el.p(booking.lot_location, class_name="text-sm text-gray-600"),
+                rx.el.h3(
+                    booking.lot_name, 
+                    class_name="text-lg font-bold text-white"
+                ),
+                rx.el.p(
+                    booking.lot_location, 
+                    class_name="text-xs text-white/85 mt-0.5"
+                ),
             ),
             rx.el.span(
                 booking.status,
                 class_name=rx.cond(
                     booking.status == "Confirmed",
-                    "px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold",
+                    "px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full text-xs font-semibold border border-white/30",
                     rx.cond(
                         booking.status == "Cancelled",
-                        "px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold",
-                        "px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold",
+                        "px-3 py-1 bg-red-500/90 text-white rounded-full text-xs font-semibold",
+                        "px-3 py-1 bg-gray-500/90 text-white rounded-full text-xs font-semibold",
                     ),
                 ),
             ),
-            class_name="flex items-center justify-between p-5 border-b border-gray-100",
+            class_name="flex items-start justify-between p-4 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 rounded-t-2xl"
         ),
         
-        # Booking Details in Grid
+        # Compact Details Grid
         rx.el.div(
-            # Column 1 - Time Info
+            # Left Column
             rx.el.div(
                 rx.el.div(
-                    rx.icon("calendar", class_name="w-4 h-4 text-gray-400 mr-2"),
-                    rx.el.span(booking.start_date, class_name="text-sm text-gray-900"),
-                    class_name="flex items-center mb-2"
+                    rx.icon("calendar-days", class_name="w-4 h-4 text-indigo-600"),
+                    rx.el.div(
+                        rx.el.span("Date", class_name="text-[10px] text-gray-500 font-medium"),
+                        rx.el.span(booking.start_date, class_name="text-xs text-gray-900 font-semibold"),
+                        class_name="flex flex-col"
+                    ),
+                    class_name="flex items-center gap-2 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100"
                 ),
                 rx.el.div(
-                    rx.icon("clock", class_name="w-4 h-4 text-gray-400 mr-2"),
-                    rx.el.span(booking.start_time, class_name="text-sm text-gray-900"),
-                    class_name="flex items-center mb-2"
+                    rx.icon("clock", class_name="w-4 h-4 text-purple-600"),
+                    rx.el.div(
+                        rx.el.span("Time", class_name="text-[10px] text-gray-500 font-medium"),
+                        rx.el.span(booking.start_time, class_name="text-xs text-gray-900 font-semibold"),
+                        class_name="flex flex-col"
+                    ),
+                    class_name="flex items-center gap-2 p-2 bg-purple-50/50 rounded-lg border border-purple-100"
                 ),
                 rx.el.div(
-                    rx.icon("hourglass", class_name="w-4 h-4 text-gray-400 mr-2"),
-                    rx.el.span(f"{booking.duration_hours} hours", class_name="text-sm text-gray-900"),
-                    class_name="flex items-center"
+                    rx.icon("timer", class_name="w-4 h-4 text-pink-600"),
+                    rx.el.div(
+                        rx.el.span("Duration", class_name="text-[10px] text-gray-500 font-medium"),
+                        rx.el.span(f"{booking.duration_hours} hrs", class_name="text-xs text-gray-900 font-semibold"),
+                        class_name="flex flex-col"
+                    ),
+                    class_name="flex items-center gap-2 p-2 bg-pink-50/50 rounded-lg border border-pink-100"
                 ),
+                class_name="flex flex-col gap-2"
             ),
             
-            # Column 2 - Booking Details
+            # Right Column
             rx.el.div(
                 rx.cond(
                     booking.slot_id != "",
                     rx.el.div(
-                        rx.icon("square-parking", class_name="w-4 h-4 text-gray-400 mr-2"),
-                        rx.el.span(f"Slot {booking.slot_id}", class_name="text-sm text-gray-900"),
-                        class_name="flex items-center mb-2"
+                        rx.icon("square-parking", class_name="w-4 h-4 text-emerald-600"),
+                        rx.el.div(
+                            rx.el.span("Slot", class_name="text-[10px] text-gray-500 font-medium"),
+                            rx.el.span(f"{booking.slot_id}", class_name="text-xs text-gray-900 font-semibold"),
+                            class_name="flex flex-col"
+                        ),
+                        class_name="flex items-center gap-2 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100"
                     ),
                 ),
                 rx.cond(
                     booking.vehicle_number != "",
                     rx.el.div(
-                        rx.icon("car", class_name="w-4 h-4 text-gray-400 mr-2"),
-                        rx.el.span(booking.vehicle_number, class_name="text-sm text-gray-900"),
-                        class_name="flex items-center mb-2"
+                        rx.icon("car", class_name="w-4 h-4 text-blue-600"),
+                        rx.el.div(
+                            rx.el.span("Vehicle", class_name="text-[10px] text-gray-500 font-medium"),
+                            rx.el.span(booking.vehicle_number, class_name="text-xs text-gray-900 font-semibold"),
+                            class_name="flex flex-col"
+                        ),
+                        class_name="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg border border-blue-100"
                     ),
                 ),
                 rx.cond(
                     booking.phone_number != "",
                     rx.el.div(
-                        rx.icon("phone", class_name="w-4 h-4 text-gray-400 mr-2"),
-                        rx.el.span(booking.phone_number, class_name="text-sm text-gray-900"),
-                        class_name="flex items-center"
+                        rx.icon("phone", class_name="w-4 h-4 text-orange-600"),
+                        rx.el.div(
+                            rx.el.span("Contact", class_name="text-[10px] text-gray-500 font-medium"),
+                            rx.el.span(booking.phone_number, class_name="text-xs text-gray-900 font-semibold"),
+                            class_name="flex flex-col"
+                        ),
+                        class_name="flex items-center gap-2 p-2 bg-orange-50/50 rounded-lg border border-orange-100"
                     ),
+                ),
+                class_name="flex flex-col gap-2"
+            ),
+            
+            class_name="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-gradient-to-br from-gray-50 to-gray-100/50 border-b border-gray-200"
+        ),
+        
+        # Collapsible QR Code Section
+        rx.el.div(
+            # Toggle Button
+            rx.el.button(
+                rx.icon("ticket", class_name="w-4 h-4 text-indigo-600"),
+                rx.el.span("Parking Ticket QR Code", class_name="text-xs font-semibold text-gray-700"),
+                rx.icon(
+                    "chevron-down",
+                    class_name=rx.cond(
+                        BookingState.expanded_qr_codes.get(booking.id, False),
+                        "w-4 h-4 text-gray-600 transform rotate-180 transition-transform duration-300",
+                        "w-4 h-4 text-gray-600 transition-transform duration-300"
+                    )
+                ),
+                on_click=BookingState.toggle_qr_code(booking.id),
+                class_name="w-full flex items-center justify-between px-4 py-2.5 bg-white hover:bg-gray-50 transition-colors"
+            ),
+            
+            # Expandable QR Content with Animation
+            rx.cond(
+                BookingState.expanded_qr_codes.get(booking.id, False),
+                rx.el.div(
+                    rx.cond(
+                        ~BookingState.qr_codes.contains(booking.id),
+                        # Loading State
+                        rx.el.div(
+                            rx.spinner(size="3", class_name="text-indigo-600"),
+                            rx.el.p("Generating...", class_name="text-xs text-gray-500 mt-2 font-medium"),
+                            class_name="w-36 h-36 flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50"
+                        ),
+                        # QR Code
+                        rx.el.div(
+                            rx.image(
+                                src=BookingState.qr_codes[booking.id],
+                                alt="QR Code",
+                                class_name="w-full h-full object-contain"
+                            ),
+                            class_name="w-36 h-36 border-4 border-white rounded-xl p-2 bg-white shadow-lg ring-1 ring-gray-200"
+                        ),
+                    ),
+                    class_name="flex items-center justify-center py-4 bg-gray-50 border-t border-gray-200 animate-fade-in"
                 ),
             ),
             
-            class_name="grid grid-cols-2 gap-6 p-5 border-b border-gray-100"
-        ),
-        
-        # QR Code Section
-        rx.el.div(
-            rx.el.h4(
-                "Parking Ticket",
-                class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3"
-            ),
-            rx.cond(
-                ~BookingState.qr_codes.contains(booking.id),
-                # Loading State
-                rx.el.div(
-                    rx.spinner(
-                        size="3",
-                        class_name="text-indigo-600"
-                    ),
-                    rx.el.p(
-                        "Generating QR...",
-                        class_name="text-xs text-gray-500 mt-2"
-                    ),
-                    class_name="w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50"
-                ),
-                # QR Code
-                rx.image(
-                    src=BookingState.qr_codes[booking.id],
-                    alt="Booking QR Code",
-                    class_name="w-32 h-32 border-2 border-gray-200 rounded-lg p-2 bg-white animate-fade-in"
-                ),
-            ),
-            class_name="flex items-center gap-4 p-5 border-b border-gray-100 bg-gray-50"
+            class_name="border-b border-gray-200"
         ),
 
         
-        # Total and actions
+        # Compact Footer with Total and Actions
         rx.el.div(
+            # Total Price - More Compact
             rx.el.div(
-                rx.el.p("TOTAL PAID", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1"),
-                rx.el.p(f"RM {booking.total_price}", class_name="text-2xl font-bold text-green-600"),
+                rx.icon("wallet", class_name="w-4 h-4 text-emerald-600"),
+                rx.el.div(
+                    rx.el.p("TOTAL", class_name="text-[10px] font-bold text-gray-500 uppercase"),
+                    rx.el.p(f"RM {booking.total_price}", class_name="text-2xl font-black bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent"),
+                    class_name="flex flex-col"
+                ),
+                class_name="flex items-center gap-2"
             ),
+            
+            # Compact Action Buttons
             rx.el.div(
                 rx.el.button(
                     rx.icon("printer", class_name="h-4 w-4"),
                     rx.el.span("Print", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
                     on_click=BookingState.print_ticket(booking.id),
-                    class_name="group flex items-center justify-center text-sm font-medium text-gray-700 hover:text-indigo-600 bg-white hover:bg-gray-50 border border-gray-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3"
+                    class_name="group flex items-center justify-center text-xs font-semibold text-indigo-700 hover:text-indigo-800 bg-gradient-to-r from-indigo-50 to-indigo-100 hover:from-indigo-100 hover:to-indigo-200 border border-indigo-200 w-9 h-9 rounded-lg transition-all shadow-sm hover:shadow-md hover:w-auto hover:px-3"
                 ),
                 rx.el.button(
                     rx.icon("share-2", class_name="h-4 w-4"),
                     rx.el.span("Share", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
                     on_click=BookingState.share_ticket(booking.id),
-                    class_name="group flex items-center justify-center text-sm font-medium text-gray-700 hover:text-blue-600 bg-white hover:bg-gray-50 border border-gray-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3"
+                    class_name="group flex items-center justify-center text-xs font-semibold text-blue-700 hover:text-blue-800 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200 w-9 h-9 rounded-lg transition-all shadow-sm hover:shadow-md hover:w-auto hover:px-3"
                 ),
                 rx.link(
                     rx.el.div(
                         rx.icon("map-pin", class_name="h-4 w-4"),
                         rx.el.span("Directions", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
-                        class_name="group flex items-center justify-center text-sm font-medium text-gray-700 hover:text-green-600 bg-white hover:bg-gray-50 border border-gray-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3 cursor-pointer"
+                        class_name="group flex items-center justify-center text-xs font-semibold text-green-700 hover:text-green-800 bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border border-green-200 w-9 h-9 rounded-lg transition-all shadow-sm hover:shadow-md hover:w-auto hover:px-3 cursor-pointer"
                     ),
                     href=f"https://www.google.com/maps/dir/?api=1&destination={booking.lot_location.replace(' ', '+')}",
                     is_external=True,
                 ),
                 rx.cond(
-                    (booking.status == "Confirmed") & BookingState.can_reschedule_booking(booking),
+                    (booking.status == "Confirmed") & BookingState.reschedulable_booking_ids.contains(booking.id),
                     rx.el.button(
                         rx.icon("clock", class_name="h-4 w-4"),
                         rx.el.span("Change Time", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
                         on_click=BookingState.initiate_reschedule(booking),
-                        class_name="group flex items-center justify-center text-sm font-medium text-purple-600 hover:text-purple-700 bg-white hover:bg-purple-50 border border-purple-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3"
+                        class_name="group flex items-center justify-center text-xs font-semibold text-purple-700 hover:text-purple-800 bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border border-purple-200 w-9 h-9 rounded-lg transition-all shadow-sm hover:shadow-md hover:w-auto hover:px-3"
                     ),
                 ),
                 rx.cond(
@@ -410,93 +467,125 @@ def booking_card_with_actions(booking: Booking) -> rx.Component:
                         rx.icon("x-circle", class_name="h-4 w-4"),
                         rx.el.span("Cancel", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
                         on_click=BookingState.initiate_cancellation(booking),
-                        class_name="group flex items-center justify-center text-sm font-medium text-red-600 hover:text-red-700 bg-white hover:bg-red-50 border border-red-200 w-10 h-10 rounded-lg transition-all shadow-sm hover:w-auto hover:px-3"
+                        class_name="group flex items-center justify-center text-xs font-semibold text-red-700 hover:text-red-800 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 border border-red-200 w-9 h-9 rounded-lg transition-all shadow-sm hover:shadow-md hover:w-auto hover:px-3"
                     ),
                 ),
                 class_name="flex flex-wrap gap-2 justify-end"
             ),
-            class_name="flex items-center justify-between p-5 bg-gray-50 rounded-b-lg"
+            class_name="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-b-2xl"
         ),
         
-        class_name="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200",
+        class_name="bg-white rounded-2xl shadow-lg hover:shadow-xl border border-gray-200 transition-all duration-300 overflow-hidden",
         key=booking.id,
     )
 
 
 def booking_card_readonly(booking: Booking) -> rx.Component:
-    """Booking card without cancel button (for Past and Cancelled tabs)"""
+    """Booking card with compact design and collapsible QR (for Past and Cancelled tabs)"""
     return rx.el.div(
-        # Header with subtle background
+        # Compact Header with gradient
         rx.el.div(
             rx.el.div(
-                rx.el.h3(booking.lot_name, class_name="text-lg font-bold text-gray-900"),
-                rx.el.p(booking.lot_location, class_name="text-sm text-gray-600"),
+                rx.el.h3(
+                    booking.lot_name, 
+                    class_name="text-lg font-bold text-white"
+                ),
+                rx.el.p(
+                    booking.lot_location, 
+                    class_name="text-xs text-white/85 mt-0.5"
+                ),
             ),
             rx.el.span(
                 booking.status,
                 class_name=rx.cond(
                     booking.status == "Confirmed",
-                    "px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold",
+                    "px-3 py-1 bg-white/20 backdrop-blur-sm text-white rounded-full text-xs font-semibold border border-white/30",
                     rx.cond(
                         booking.status == "Cancelled",
-                        "px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold",
-                        "px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold",
+                        "px-3 py-1 bg-red-500/90 text-white rounded-full text-xs font-semibold",
+                        "px-3 py-1 bg-gray-500/90 text-white rounded-full text-xs font-semibold",
                     ),
                 ),
             ),
-            class_name="flex items-center justify-between p-5 border-b border-gray-100",
+            class_name="flex items-start justify-between p-4 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 rounded-t-2xl"
         ),
         
-        # Booking Details in Grid
+        # Compact Details Grid
         rx.el.div(
-            # Column 1 - Time Info
+            # Left Column
             rx.el.div(
                 rx.el.div(
-                    rx.icon("calendar", class_name="w-4 h-4 text-gray-400 mr-2"),
-                    rx.el.span(booking.start_date, class_name="text-sm text-gray-900"),
-                    class_name="flex items-center mb-2"
+                    rx.icon("calendar-days", class_name="w-4 h-4 text-indigo-600"),
+                    rx.el.div(
+                        rx.el.span("Date", class_name="text-[10px] text-gray-500 font-medium"),
+                        rx.el.span(booking.start_date, class_name="text-xs text-gray-900 font-semibold"),
+                        class_name="flex flex-col"
+                    ),
+                    class_name="flex items-center gap-2 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100"
                 ),
                 rx.el.div(
-                    rx.icon("clock", class_name="w-4 h-4 text-gray-400 mr-2"),
-                    rx.el.span(booking.start_time, class_name="text-sm text-gray-900"),
-                    class_name="flex items-center mb-2"
+                    rx.icon("clock", class_name="w-4 h-4 text-purple-600"),
+                    rx.el.div(
+                        rx.el.span("Time", class_name="text-[10px] text-gray-500 font-medium"),
+                        rx.el.span(booking.start_time, class_name="text-xs text-gray-900 font-semibold"),
+                        class_name="flex flex-col"
+                    ),
+                    class_name="flex items-center gap-2 p-2 bg-purple-50/50 rounded-lg border border-purple-100"
                 ),
                 rx.el.div(
-                    rx.icon("hourglass", class_name="w-4 h-4 text-gray-400 mr-2"),
-                    rx.el.span(f"{booking.duration_hours} hours", class_name="text-sm text-gray-900"),
-                    class_name="flex items-center"
+                    rx.icon("timer", class_name="w-4 h-4 text-pink-600"),
+                    rx.el.div(
+                        rx.el.span("Duration", class_name="text-[10px] text-gray-500 font-medium"),
+                        rx.el.span(f"{booking.duration_hours} hrs", class_name="text-xs text-gray-900 font-semibold"),
+                        class_name="flex flex-col"
+                    ),
+                    class_name="flex items-center gap-2 p-2 bg-pink-50/50 rounded-lg border border-pink-100"
                 ),
+                class_name="flex flex-col gap-2"
             ),
             
-            # Column 2 - Booking Details
+            # Right Column
             rx.el.div(
                 rx.cond(
                     booking.slot_id != "",
                     rx.el.div(
-                        rx.icon("square-parking", class_name="w-4 h-4 text-gray-400 mr-2"),
-                        rx.el.span(f"Slot {booking.slot_id}", class_name="text-sm text-gray-900"),
-                        class_name="flex items-center mb-2"
+                        rx.icon("square-parking", class_name="w-4 h-4 text-emerald-600"),
+                        rx.el.div(
+                            rx.el.span("Slot", class_name="text-[10px] text-gray-500 font-medium"),
+                            rx.el.span(f"{booking.slot_id}", class_name="text-xs text-gray-900 font-semibold"),
+                            class_name="flex flex-col"
+                        ),
+                        class_name="flex items-center gap-2 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100"
                     ),
                 ),
                 rx.cond(
                     booking.vehicle_number != "",
                     rx.el.div(
-                        rx.icon("car", class_name="w-4 h-4 text-gray-400 mr-2"),
-                        rx.el.span(booking.vehicle_number, class_name="text-sm text-gray-900"),
-                        class_name="flex items-center mb-2"
+                        rx.icon("car", class_name="w-4 h-4 text-blue-600"),
+                        rx.el.div(
+                            rx.el.span("Vehicle", class_name="text-[10px] text-gray-500 font-medium"),
+                            rx.el.span(booking.vehicle_number, class_name="text-xs text-gray-900 font-semibold"),
+                            class_name="flex flex-col"
+                        ),
+                        class_name="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg border border-blue-100"
                     ),
                 ),
                 rx.cond(
                     booking.phone_number != "",
                     rx.el.div(
-                        rx.icon("phone", class_name="w-4 h-4 text-gray-400 mr-2"),
-                        rx.el.span(booking.phone_number, class_name="text-sm text-gray-900"),
-                        class_name="flex items-center"
+                        rx.icon("phone", class_name="w-4 h-4 text-orange-600"),
+                        rx.el.div(
+                            rx.el.span("Contact", class_name="text-[10px] text-gray-500 font-medium"),
+                            rx.el.span(booking.phone_number, class_name="text-xs text-gray-900 font-semibold"),
+                            class_name="flex flex-col"
+                        ),
+                        class_name="flex items-center gap-2 p-2 bg-orange-50/50 rounded-lg border border-orange-100"
                     ),
                 ),
+                class_name="flex flex-col gap-2"
             ),
             
-            class_name="grid grid-cols-2 gap-6 p-5 border-b border-gray-100"
+            class_name="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-gradient-to-br from-gray-50 to-gray-100/50 border-b border-gray-200"
         ),
         
         # Refund Details Section (only for cancelled bookings) - COLLAPSIBLE
@@ -505,67 +594,46 @@ def booking_card_readonly(booking: Booking) -> rx.Component:
             rx.el.div(
                 # Toggle Button
                 rx.el.button(
-                    rx.el.div(
-                        rx.icon("info", class_name="w-4 h-4 mr-2"),
-                        rx.el.span("Refund Information", class_name="text-sm font-semibold"),
-                        rx.cond(
+                    rx.icon("info", class_name="w-4 h-4 text-blue-600"),
+                    rx.el.span("Refund Information", class_name="text-xs font-semibold text-gray-700"),
+                    rx.icon(
+                        "chevron-down",
+                        class_name=rx.cond(
                             BookingState.expanded_refund_details.get(booking.id, False),
-                            rx.icon("chevron-up", class_name="w-4 h-4 ml-auto"),
-                            rx.icon("chevron-down", class_name="w-4 h-4 ml-auto"),
-                        ),
-                        class_name="flex items-center w-full"
+                            "w-4 h-4 text-gray-600 transform rotate-180 transition-transform duration-300",
+                            "w-4 h-4 text-gray-600 transition-transform duration-300"
+                        )
                     ),
                     on_click=BookingState.toggle_refund_details(booking.id),
-                    class_name="w-full p-4 bg-blue-50 hover:bg-blue-100 transition-colors border-b border-blue-100 text-left"
+                    class_name="w-full flex items-center justify-between px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors border-b border-blue-200"
                 ),
                 
-                # Collapsible Details
+                # Collapsible Refund Details
                 rx.cond(
                     BookingState.expanded_refund_details.get(booking.id, False),
                     rx.el.div(
                         # Refund Amount
                         rx.el.div(
+                            rx.icon("dollar-sign", class_name="w-4 h-4 text-blue-600"),
                             rx.el.div(
-                                rx.icon("dollar-sign", class_name="w-4 h-4 text-blue-500 mr-2"),
-                                rx.el.span("Refund Amount:", class_name="text-xs text-gray-500 font-medium"),
-                                class_name="flex items-center mb-1"
+                                rx.el.span("Refund", class_name="text-[10px] text-gray-500 font-medium"),
+                                rx.el.span(f"RM {booking.refund_amount}", class_name="text-sm font-bold text-blue-600"),
+                                class_name="flex flex-col"
                             ),
-                            rx.el.p(
-                                f"RM {booking.refund_amount}",
-                                class_name="text-lg font-bold text-blue-600 ml-6"
-                            ),
+                            class_name="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg"
                         ),
                         
                         # Refund Status
-                        rx.el.div(
-                            rx.el.div(
-                                rx.icon("info", class_name="w-4 h-4 text-gray-400 mr-2"),
-                                rx.el.span("Status:", class_name="text-xs text-gray-500 font-medium"),
-                                class_name="flex items-center mb-1 mt-3"
-                            ),
+                        rx.cond(
+                            booking.refund_status == "Approved",
+                            rx.el.span("✓ Approved", class_name="px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs font-semibold"),
                             rx.cond(
-                                booking.refund_status == "Approved",
-                                rx.el.span(
-                                    "✓ Approved",
-                                    class_name="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm font-semibold ml-6"
-                                ),
+                                booking.refund_status == "Pending",
+                                rx.el.span("⏳ Pending", class_name="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-md text-xs font-semibold"),
                                 rx.cond(
-                                    booking.refund_status == "Pending",
-                                    rx.el.span(
-                                        "⏳ Pending Review",
-                                        class_name="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-md text-sm font-semibold ml-6"
-                                    ),
-                                    rx.cond(
-                                        booking.refund_status == "Rejected",
-                                        rx.el.span(
-                                            "✗ Rejected",
-                                            class_name="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm font-semibold ml-6"
-                                        ),
-                                        rx.el.span(
-                                            "N/A",
-                                            class_name="px-3 py-1 bg-gray-100 text-gray-600 rounded-md text-sm ml-6"
-                                        ),
-                                    ),
+                                    booking.refund_status == "Rejected",
+                                    rx.el.span("✗ Rejected", class_name="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-semibold"),
+                                    rx.el.span("N/A", class_name="px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs"),
                                 ),
                             ),
                         ),
@@ -574,15 +642,9 @@ def booking_card_readonly(booking: Booking) -> rx.Component:
                         rx.cond(
                             booking.cancellation_at != "",
                             rx.el.div(
-                                rx.el.div(
-                                    rx.icon("clock", class_name="w-4 h-4 text-gray-400 mr-2"),
-                                    rx.el.span("Cancelled At:", class_name="text-xs text-gray-500 font-medium"),
-                                    class_name="flex items-center mb-1 mt-3"
-                                ),
-                                rx.el.p(
-                                    booking.cancellation_at,
-                                    class_name="text-sm text-gray-700 ml-6"
-                                ),
+                                rx.icon("clock", class_name="w-3 h-3 text-gray-400"),
+                                rx.el.span(booking.cancellation_at, class_name="text-xs text-gray-600"),
+                                class_name="flex items-center gap-1"
                             ),
                         ),
                         
@@ -590,59 +652,98 @@ def booking_card_readonly(booking: Booking) -> rx.Component:
                         rx.cond(
                             booking.cancellation_reason != "",
                             rx.el.div(
-                                rx.el.div(
-                                    rx.icon("message-square", class_name="w-4 h-4 text-gray-400 mr-2"),
-                                    rx.el.span("Reason:", class_name="text-xs text-gray-500 font-medium"),
-                                    class_name="flex items-center mb-1 mt-3"
-                                ),
-                                rx.el.p(
-                                    booking.cancellation_reason,
-                                    class_name="text-sm text-gray-700 ml-6 italic"
-                                ),
+                                rx.icon("message-square", class_name="w-3 h-3 text-gray-400"),
+                                rx.el.span(booking.cancellation_reason, class_name="text-xs text-gray-600 italic"),
+                                class_name="flex items-center gap-1"
                             ),
                         ),
                         
-                        class_name="p-5 space-y-2 bg-blue-50 border-b border-blue-100 animate-fade-in"
+                        class_name="flex flex-col gap-2 p-3 bg-blue-50/30 border-b border-blue-200 animate-fade-in"
                     ),
                 ),
             ),
         ),
         
-        # Total and actions (NO CANCEL BUTTON)
+        # Collapsible QR Code Section
         rx.el.div(
-            rx.el.div(
-                rx.el.p("TOTAL PAID", class_name="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1"),
-                rx.el.p(f"RM {booking.total_price}", class_name="text-2xl font-bold text-green-600"),
+            # Toggle Button
+            rx.el.button(
+                rx.icon("ticket", class_name="w-4 h-4 text-indigo-600"),
+                rx.el.span("Parking Ticket QR Code", class_name="text-xs font-semibold text-gray-700"),
+                rx.icon(
+                    "chevron-down",
+                    class_name=rx.cond(
+                        BookingState.expanded_qr_codes.get(booking.id, False),
+                        "w-4 h-4 text-gray-600 transform rotate-180 transition-transform duration-300",
+                        "w-4 h-4 text-gray-600 transition-transform duration-300"
+                    )
+                ),
+                on_click=BookingState.toggle_qr_code(booking.id),
+                class_name="w-full flex items-center justify-between px-4 py-2.5 bg-white hover:bg-gray-50 transition-colors"
             ),
+            
+            # Expandable QR Content
+            rx.cond(
+                BookingState.expanded_qr_codes.get(booking.id, False),
+                rx.el.div(
+                    rx.el.div(
+                        rx.image(
+                            src=BookingState.qr_codes.get(booking.id, ""),
+                            alt="QR Code",
+                            class_name="w-full h-full object-contain"
+                        ),
+                        class_name="w-36 h-36 border-4 border-white rounded-xl p-2 bg-white shadow-lg ring-1 ring-gray-200"
+                    ),
+                    class_name="flex items-center justify-center py-4 bg-gray-50 border-t border-gray-200 animate-fade-in"
+                ),
+            ),
+            
+            class_name="border-b border-gray-200"
+        ),
+
+        
+        # Compact Footer with Total and Actions (NO CANCEL)
+        rx.el.div(
+            # Total Price
+            rx.el.div(
+                rx.icon("wallet", class_name="w-4 h-4 text-emerald-600"),
+                rx.el.div(
+                    rx.el.p("TOTAL", class_name="text-[10px] font-bold text-gray-500 uppercase"),
+                    rx.el.p(f"RM {booking.total_price}", class_name="text-2xl font-black bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent"),
+                    class_name="flex flex-col"
+                ),
+                class_name="flex items-center gap-2"
+            ),
+            
+            # Compact Action Buttons (NO CANCEL)
             rx.el.div(
                 rx.el.button(
-                    rx.icon("printer", class_name="h-4 w-4 mr-2"),
-                    "Print",
+                    rx.icon("printer", class_name="h-4 w-4"),
+                    rx.el.span("Print", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
                     on_click=BookingState.print_ticket(booking.id),
-                    class_name="flex items-center text-sm font-medium text-gray-700 hover:text-indigo-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    class_name="group flex items-center justify-center text-xs font-semibold text-indigo-700 hover:text-indigo-800 bg-gradient-to-r from-indigo-50 to-indigo-100 hover:from-indigo-100 hover:to-indigo-200 border border-indigo-200 w-9 h-9 rounded-lg transition-all shadow-sm hover:shadow-md hover:w-auto hover:px-3"
                 ),
                 rx.el.button(
-                    rx.icon("share-2", class_name="h-4 w-4 mr-2"),
-                    "Share",
+                    rx.icon("share-2", class_name="h-4 w-4"),
+                    rx.el.span("Share", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
                     on_click=BookingState.share_ticket(booking.id),
-                    class_name="flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    class_name="group flex items-center justify-center text-xs font-semibold text-blue-700 hover:text-blue-800 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200 w-9 h-9 rounded-lg transition-all shadow-sm hover:shadow-md hover:w-auto hover:px-3"
                 ),
                 rx.link(
-                    rx.el.button(
-                        rx.icon("map-pin", class_name="h-4 w-4 mr-2"),
-                        "Directions",
-                        class_name="flex items-center text-sm font-medium text-gray-700 hover:text-green-600 bg-white hover:bg-gray-50 border border-gray-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    rx.el.div(
+                        rx.icon("map-pin", class_name="h-4 w-4"),
+                        rx.el.span("Directions", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),
+                        class_name="group flex items-center justify-center text-xs font-semibold text-green-700 hover:text-green-800 bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border border-green-200 w-9 h-9 rounded-lg transition-all shadow-sm hover:shadow-md hover:w-auto hover:px-3 cursor-pointer"
                     ),
                     href=f"https://www.google.com/maps/dir/?api=1&destination={booking.lot_location.replace(' ', '+')}",
                     is_external=True,
                 ),
-                # NO CANCEL BUTTON HERE!
-                class_name="flex gap-2"
+                class_name="flex flex-wrap gap-2 justify-end"
             ),
-            class_name="flex items-center justify-between p-5 bg-gray-50 rounded-b-lg"
+            class_name="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-b-2xl"
         ),
         
-        class_name="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200",
+        class_name="bg-white rounded-2xl shadow-lg hover:shadow-xl border border-gray-200 transition-all duration-300 overflow-hidden",
         key=booking.id,
     )
     """Refined simple and clean booking card"""

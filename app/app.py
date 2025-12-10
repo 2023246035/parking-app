@@ -39,7 +39,13 @@ class AppState(rx.State):
 
 
 app = rx.App(
-    theme=rx.theme(appearance="light"),
+    theme=rx.theme(
+        appearance="inherit",
+        has_background=False,
+    ),
+    stylesheets=[
+        "/input-fix.css",  # Force white input backgrounds
+    ],
     head_components=[
         rx.el.link(rel="preconnect", href="https://fonts.googleapis.com"),
         rx.el.link(rel="preconnect", href="https://fonts.gstatic.com", cross_origin=""),

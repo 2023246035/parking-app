@@ -1,6 +1,7 @@
 import reflex as rx
 from app.states.auth_state import AuthState
 from app.states.user_state import UserState
+# LANGUAGE SWITCHER DISABLED - Translation files ready for future use
 
 
 def navbar_link(text: str, url: str) -> rx.Component:
@@ -75,7 +76,7 @@ def navbar() -> rx.Component:
                         class_name="flex items-center gap-2",
                     ),
                 ),
-                class_name="hidden md:flex items-center",
+                class_name="hidden md:flex items-center gap-3",
             ),
             rx.el.button(
                 rx.icon("menu", class_name="h-6 w-6 text-gray-600"),

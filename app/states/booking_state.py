@@ -47,9 +47,9 @@ class BookingState(rx.State):
     new_start_time: str = ""
     # New slot booking variables
     booking_step: int = 1
-    selected_slot: str = ""
-    vehicle_number: str = ""
-    phone_number: str = ""
+    selected_slots: list[str] = []  # Changed from single slot to multiple
+    vehicle_details: dict[str, dict[str, str]] = {}  # {slot_id: {vehicle_number: str, driver_name: str}}
+    phone_number: str = ""  # Single phone for all bookings
     is_loading_slots: bool = False
     occupied_slots: list[str] = []
     qr_codes: dict[str, str] = {}  # Store QR codes by booking ID
@@ -179,18 +179,19 @@ class BookingState(rx.State):
         
         return True
     
-    def validate_slot(self) -> bool:
-        """Validate parking slot selection"""
+    def validate_slots(self) -> bool:
+        """Validate parking slots selection"""
         self.error_slot = ""
         
-        if not self.selected_slot or self.selected_slot.strip() == "":
-            self.error_slot = "Please select a parking slot"
+        if not self.selected_slots or len(self.selected_slots) == 0:
+            self.error_slot = "Please select at least one parking slot"
             return False
         
-        # Check if slot is occupied
-        if self.selected_slot in self.occupied_slots:
-            self.error_slot = f"Slot {self.selected_slot} is already occupied"
-            return False
+        # Check if any selected slot is occupied
+        for slot in self.selected_slots:
+            if slot in self.occupied_slots:
+                self.error_slot = f"Slot {slot} is already occupied. Please deselect it."
+                return False
         
         return True
     
@@ -257,11 +258,15 @@ class BookingState(rx.State):
         if not self.validate_duration():
             is_valid = False
         
-        if not self.validate_slot():
+        if not self.validate_slots():
             is_valid = False
         
-        if not self.validate_vehicle_number():
-            is_valid = False
+        # Validate that all selected slots have vehicle numbers
+        for slot_id in self.selected_slots:
+            vehicle_number = self.vehicle_details.get(slot_id, {}).get("vehicle_number", "").strip()
+            if not vehicle_number or len(vehicle_number) < 3:
+                is_valid = False
+                break
         
         if not self.validate_phone_number():
             is_valid = False
@@ -336,6 +341,23 @@ class BookingState(rx.State):
         return [f"B{i}" for i in range(1, 11)]
 
     @rx.var
+    def total_slots_selected(self) -> int:
+        """Return number of slots selected"""
+        return len(self.selected_slots)
+    
+    @rx.var
+    def total_price_all_slots(self) -> float:
+        """Calculate total price for all selected slots"""
+        if not self.selected_lot or self.total_slots_selected == 0:
+            return 0.0
+        return self.selected_lot.price_per_hour * self.duration_hours * self.total_slots_selected
+    
+    @rx.var
+    def estimated_price(self) -> float:
+        """Alias for total_price_all_slots for compatibility"""
+        return self.total_price_all_slots
+
+    @rx.var
     def can_proceed_to_next_step(self) -> bool:
         """Check if user can proceed to next step with proper validation"""
         if self.booking_step == 1:
@@ -349,14 +371,18 @@ class BookingState(rx.State):
                 self.error_duration == ""
             )
         elif self.booking_step == 2:
-            # Step 2: Must have selected a slot
-            return self.selected_slot != "" and self.error_slot == ""
+            # Step 2: Must have selected at least one slot
+            return len(self.selected_slots) > 0 and self.error_slot == ""
         elif self.booking_step == 3:
-            # Step 3: Must have vehicle and phone
+            # Step 3: Must have vehicle details for each slot and phone
+            # Check if all selected slots have vehicle numbers
+            all_slots_have_vehicle = all(
+                self.vehicle_details.get(slot, {}).get("vehicle_number", "").strip() != ""
+                for slot in self.selected_slots
+            )
             return (
-                self.vehicle_number.strip() != "" and 
+                all_slots_have_vehicle and
                 self.phone_number.strip() != "" and
-                self.error_vehicle == "" and
                 self.error_phone == ""
             )
         elif self.booking_step == 4:
@@ -364,14 +390,12 @@ class BookingState(rx.State):
             return (
                 self.start_date != "" and
                 self.start_time != "" and
-                self.selected_slot != "" and
-                self.vehicle_number.strip() != "" and
+                len(self.selected_slots) > 0 and
                 self.phone_number.strip() != "" and
                 self.error_date == "" and
                 self.error_time == "" and
                 self.error_duration == "" and
                 self.error_slot == "" and
-                self.error_vehicle == "" and
                 self.error_phone == ""
             )
         return True
@@ -479,11 +503,15 @@ class BookingState(rx.State):
         self.error_vehicle = ""
         self.error_phone = ""
         self.occupied_slots = []
+        self.booking_step = 1
+        self.selected_slots = []
 
     @rx.event
     def close_modal(self):
         self.is_modal_open = False
         self.selected_lot = None
+        self.booking_step = 1
+        self.selected_slots = []
 
     @rx.event
     def handle_modal_open_change(self, open: bool):
@@ -511,11 +539,25 @@ class BookingState(rx.State):
             logging.exception(f"Error: {e}")
 
     @rx.event
-    def select_slot(self, slot: str):
-        """Select a parking slot"""
-        self.selected_slot = slot
-        # Run validation on change
-        self.validate_slot()
+    def toggle_slot_selection(self, slot: str):
+        """Toggle slot selection - add or remove from selected slots"""
+        if slot in self.selected_slots:
+            # Deselect: remove from list
+            self.selected_slots.remove(slot)
+            # Remove vehicle details for this slot
+            if slot in self.vehicle_details:
+                del self.vehicle_details[slot]
+        else:
+            # Select: add to list
+            self.selected_slots.append(slot)
+            # Initialize vehicle details for this slot
+            self.vehicle_details[slot] = {
+                "vehicle_number": "",
+                "driver_name": ""
+            }
+        
+        # Run validation
+        self.validate_slots()
 
     @rx.event
     async def load_occupied_slots(self):
@@ -593,14 +635,14 @@ class BookingState(rx.State):
     def go_back_to_datetime(self):
         """Go back to datetime selection"""
         self.booking_step = 1
-        self.selected_slot = ""
+        self.selected_slots = []
         self.error_slot = ""
 
     @rx.event
     def go_back_to_step_1(self):
         """Go back to step 1"""
         self.booking_step = 1
-        self.selected_slot = ""
+        self.selected_slots = []
         self.error_slot = ""
 
     @rx.event
@@ -615,20 +657,39 @@ class BookingState(rx.State):
 
     @rx.event
     def proceed_to_details(self):
-        """Step 2 -> Step 3: Validate slot selection"""
-        if not self.validate_slot():
+        """Step 2 -> Step 3: Validate slots selection"""
+        if not self.validate_slots():
             return
         self.booking_step = 3
 
     @rx.event
     def proceed_to_review(self):
-        """Step 3 -> Step 4: Validate vehicle and contact info"""
-        # Use comprehensive validators
-        vehicle_valid = self.validate_vehicle_number()
+        """Step 3 -> Step 4: Validate vehicle details for all slots and phone"""
+        # Validate phone number
         phone_valid = self.validate_phone_number()
         
-        # Only proceed if both validations pass
-        if not (vehicle_valid and phone_valid):
+        # Validate that all selected slots have vehicle numbers
+        all_vehicles_valid = True
+        vehicle_numbers = []
+        
+        for slot_id in self.selected_slots:
+            vehicle_number = self.vehicle_details.get(slot_id, {}).get("vehicle_number", "").strip().upper()
+            
+            # Check if vehicle number is valid
+            if not vehicle_number or len(vehicle_number) < 3:
+                all_vehicles_valid = False
+                yield rx.toast.error(f"Please enter a valid vehicle number for Slot {slot_id}")
+                return
+            
+            # Check for duplicate vehicle numbers
+            if vehicle_number in vehicle_numbers:
+                yield rx.toast.error(f"Vehicle number '{vehicle_number}' is used for multiple slots. Each slot must have a different vehicle.")
+                return
+            
+            vehicle_numbers.append(vehicle_number)
+        
+        # Only proceed if all validations pass
+        if not (all_vehicles_valid and phone_valid):
             return
             
         self.booking_step = 4
@@ -646,6 +707,18 @@ class BookingState(rx.State):
         self.phone_number = number
         # Run validation on change
         self.validate_phone_number()
+    
+    @rx.event
+    def set_slot_vehicle_number(self, slot_id: str, vehicle_number: str):
+        """Set vehicle number for a specific slot"""
+        if slot_id in self.vehicle_details:
+            self.vehicle_details[slot_id]["vehicle_number"] = vehicle_number.upper()
+    
+    @rx.event
+    def set_slot_driver_name(self, slot_id: str, driver_name: str):
+        """Set driver name for a specific slot"""
+        if slot_id in self.vehicle_details:
+            self.vehicle_details[slot_id]["driver_name"] = driver_name
 
     @rx.event
     def set_card_number(self, value: str):
@@ -685,7 +758,7 @@ class BookingState(rx.State):
                 
         elif self.booking_step == 2:
             # Step 2: Validate Slot Selection
-            return self.validate_slot()
+            return self.validate_slots()
                 
         elif self.booking_step == 3:
             # Step 3: Validate Vehicle and Phone
@@ -718,8 +791,8 @@ class BookingState(rx.State):
     def reset_booking_wizard(self):
         """Reset booking wizard to step 1"""
         self.booking_step = 1
-        self.selected_slot = ""
-        self.vehicle_number = ""
+        self.selected_slots = []
+        self.vehicle_details = {}
         self.phone_number = ""
 
     @rx.event
@@ -831,7 +904,7 @@ class BookingState(rx.State):
 
     @rx.event
     async def process_payment(self):
-        # STEP 1: Validate ALL booking fields first
+        # STEP 1: Validate ALL booking fields first  
         if not self.validate_all_booking_fields():
             # Collect specific errors to show the user
             error_details = []
@@ -839,7 +912,6 @@ class BookingState(rx.State):
             if self.error_time: error_details.append(f"Time: {self.error_time}")
             if self.error_duration: error_details.append(f"Duration: {self.error_duration}")
             if self.error_slot: error_details.append(f"Slot: {self.error_slot}")
-            if self.error_vehicle: error_details.append(f"Vehicle: {self.error_vehicle}")
             if self.error_phone: error_details.append(f"Phone: {self.error_phone}")
             
             error_msg = " • ".join(error_details) if error_details else "Please check your inputs."
@@ -871,50 +943,71 @@ class BookingState(rx.State):
                 lot = session.get(DBParkingLot, int(self.selected_lot.id))
                 if not lot:
                     raise ValueError("Parking lot not found")
-                if lot.available_spots <= 0:
-                    self.payment_error = "This parking lot is now full."
+                
+                # Check if lot has enough spots for all selected slots
+                if lot.available_spots < len(self.selected_slots):
+                    self.payment_error = f"Not enough spots available. Only {lot.available_spots} left."
                     self.is_processing_payment = False
-                    yield rx.toast.error("Booking Failed: Lot is full.")
+                    yield rx.toast.error("Booking Failed: Not enough spots available.")
                     return
+                
+                # Simulate payment failure
                 if random.random() > 0.98:
                     self.payment_error = "Payment declined by bank."
                     self.is_processing_payment = False
                     yield rx.toast.error("Payment Failed")
                     return
+                
+                # Create transaction ID for this payment
                 transaction_id = f"TXN_{str(uuid.uuid4())[:8].upper()}"
                 timestamp = datetime.now()
-                new_booking = DBBooking(
-                    user_id=user.id,
-                    lot_id=lot.id,
-                    start_date=self.start_date,
-                    start_time=self.start_time,
-                    duration_hours=self.duration_hours,
-                    total_price=self.estimated_price,
-                    status="Confirmed",
-                    payment_status="Paid",
-                    transaction_id=transaction_id,
-                    slot_id=self.selected_slot,
-                    vehicle_number=self.vehicle_number,
-                    phone_number=self.phone_number,
-                    created_at=timestamp,
-                )
-                session.add(new_booking)
-                session.flush()
+                created_booking_ids = []
+                
+                # Create one booking for EACH selected slot
+                for slot_id in self.selected_slots:
+                    vehicle_info = self.vehicle_details.get(slot_id, {})
+                    vehicle_number = vehicle_info.get("vehicle_number", "UNKNOWN")
+                    
+                    new_booking = DBBooking(
+                        user_id=user.id,
+                        lot_id=lot.id,
+                        start_date=self.start_date,
+                        start_time=self.start_time,
+                        duration_hours=self.duration_hours,
+                        total_price=self.selected_lot.price_per_hour * self.duration_hours,  # Price per individual slot
+                        status="Confirmed",
+                        payment_status="Paid",
+                        transaction_id=transaction_id,  # Same transaction for all
+                        slot_id=slot_id,
+                        vehicle_number=vehicle_number,
+                        phone_number=self.phone_number,
+                        created_at=timestamp,
+                    )
+                    session.add(new_booking)
+                    session.flush()
+                    created_booking_ids.append(new_booking.id)
+                
+                # Create single payment for total amount
                 new_payment = DBPayment(
                     transaction_id=transaction_id,
-                    booking_id=new_booking.id,
-                    amount=self.estimated_price,
+                    booking_id=created_booking_ids[0] if created_booking_ids else None,  # Link to first booking
+                    amount=self.total_price_all_slots,  # Total for all slots
                     status="Success",
                     timestamp=timestamp,
                     method="Credit Card",
                 )
                 session.add(new_payment)
-                lot.available_spots -= 1
+                
+                # Update available spots (reduce by number of slots booked)
+                lot.available_spots -= len(self.selected_slots)
                 session.add(lot)
+                
+                # Create audit log
+                slot_list = ", ".join(self.selected_slots)
                 new_audit = DBAuditLog(
-                    action="Booking Created",
+                    action="Multi-Slot Booking Created",
                     timestamp=timestamp,
-                    details=f"Booking {new_booking.id} for {lot.name}, Slot: {self.selected_slot}, Vehicle: {self.vehicle_number}",
+                    details=f"Created {len(self.selected_slots)} bookings ({slot_list}) for {lot.name}. Total: RM {self.total_price_all_slots:.2f}",
                     user_id=user.id,
                 )
                 session.add(new_audit)
@@ -923,41 +1016,61 @@ class BookingState(rx.State):
                 # Send Confirmation Email
                 try:
                     from app.services.email_service import send_booking_confirmation_email, send_payment_success_email
+                    
+                    logging.info(f"🔔 Attempting to send booking confirmation email to {user.email}")
+                    
+                    # Send confirmation for the first booking (or could send one email with all details)
                     booking_details = {
                         "user_name": user.full_name or "User",
                         "lot_name": lot.name,
                         "start_date": self.start_date,
                         "start_time": self.start_time,
                         "duration": self.duration_hours,
-                        "slot_id": self.selected_slot,
-                        "vehicle_number": self.vehicle_number,
-                        "total_price": self.estimated_price,
+                        "slot_id": slot_list,  # All slots
+                        "vehicle_number": ", ".join([self.vehicle_details.get(s, {}).get("vehicle_number", "N/A") for s in self.selected_slots]),
+                        "total_price": self.total_price_all_slots,
                         "payment_status": "Paid"
                     }
-                    send_booking_confirmation_email(user.email, booking_details)
+                    
+                    confirmation_sent = send_booking_confirmation_email(user.email, booking_details)
+                    if confirmation_sent:
+                        logging.info(f"✅ Booking confirmation email sent successfully to {user.email}")
+                    else:
+                        logging.warning(f"⚠️ Booking confirmation email FAILED to send to {user.email}")
                     
                     # Send Payment Receipt
                     payment_details = {
                         "user_name": user.full_name or "User",
-                        "amount": self.estimated_price,
+                        "amount": self.total_price_all_slots,
                         "transaction_id": transaction_id,
                         "payment_date": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                         "payment_method": "Credit Card",
-                        "booking_id": f"BK-{new_booking.id}"
+                        "booking_id": f"BK-{', '.join(map(str, created_booking_ids))}"
                     }
-                    send_payment_success_email(user.email, payment_details)
-                    logging.info(f"Booking confirmation and payment receipt sent to {user.email}")
+                    
+                    payment_sent = send_payment_success_email(user.email, payment_details)
+                    if payment_sent:
+                        logging.info(f"✅ Payment receipt email sent successfully to {user.email}")
+                    else:
+                        logging.warning(f"⚠️ Payment receipt email FAILED to send to {user.email}")
+                        
                 except Exception as e:
-                    logging.exception(f"Failed to send confirmation/receipt emails: {e}")
+                    logging.exception(f"❌ Failed to send confirmation/receipt emails: {e}")
+
 
                 from app.states.parking_state import ParkingState
 
                 parking_state = await self.get_state(ParkingState)
-                parking_state.update_spots(lot.id, -1)
+                parking_state.update_spots(lot.id, -len(self.selected_slots))  # Decrease by number of slots
                 self.is_payment_modal_open = False
                 self.is_processing_payment = False
                 self.selected_lot = None
-                yield rx.toast.success("Payment Successful! Booking Confirmed.")
+                
+                # Clear selected slots and vehicle details
+                self.selected_slots = []
+                self.vehicle_details = {}
+                
+                yield rx.toast.success(f"Payment Successful! {len(created_booking_ids)} booking(s) confirmed.")
                 yield BookingState.load_bookings
                 yield rx.redirect("/bookings")
         except Exception as e:

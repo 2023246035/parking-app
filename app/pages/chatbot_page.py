@@ -4,13 +4,22 @@ from app.components.footer import footer
 import asyncio
 
 
-class SimpleChatState(rx.State):
-    """Simple chat state for the AI chatbot"""
+class ChatbotState(rx.State):
+    """Enhanced chatbot state with better performance"""
     messages: list[dict[str, str]] = [
-        {"role": "assistant", "content": "Hello! I'm your personal parking assistant. 🚗\n\nI can help you find spots, check prices, or predict availability. What can I do for you today?"}
+        {
+            "role": "assistant", 
+            "content": "👋 **Hey there! I'm your AI Parking Assistant**\n\nI can help you:\n• 🅿️ Find parking spots instantly\n• 📊 Check live availability\n• 💰 Compare prices\n• 📋 Manage your bookings\n\n**What can I help you with today?**"
+        }
     ]
     current_message: str = ""
     is_loading: bool = False
+    quick_actions: list[str] = [
+        "🔍 Find parking near me",
+        "📊 Check availability",
+        "💰 Show cheapest spots",
+        "⭐ Top rated lots"
+    ]
 
     @rx.event
     async def on_load(self):
@@ -18,14 +27,21 @@ class SimpleChatState(rx.State):
         query_params = self.router.page.params
         if "query" in query_params:
             query = query_params["query"]
-            # Only send if it's a new query to avoid loops (simple check)
             if query and (not self.messages or self.messages[-1]["content"] != query):
                 self.current_message = query
-                return SimpleChatState.send_message
+                return ChatbotState.send_message
+
+    @rx.event
+    async def send_quick_action(self, action: str):
+        """Send a quick action message"""
+        # Remove emoji and send
+        clean_message = action.split(" ", 1)[1] if " " in action else action
+        self.current_message = clean_message
+        return ChatbotState.send_message
 
     @rx.event
     async def send_message(self):
-        """Send a message to the AI"""
+        """Send a message to the AI - with streaming effect"""
         if not self.current_message.strip():
             return
         
@@ -40,50 +56,55 @@ class SimpleChatState(rx.State):
         
         # Get AI response
         try:
-            # Simulate a small delay for "thinking" effect if response is too fast
-            await asyncio.sleep(0.5) 
+            # Smaller delay for faster perceived performance
+            await asyncio.sleep(0.3)
             response_data = await ParkingChatbot.generate_response(user_msg, user_id=None)
             response = response_data.get("response", "I'm sorry, I didn't get that.")
+            
+            # Add response
             self.messages.append({"role": "assistant", "content": response})
         except Exception as e:
             self.messages.append({
                 "role": "assistant", 
-                "content": f"I'm having a bit of trouble connecting to my brain right now. 🤯\n\nError: {str(e)}"
+                "content": f"⚠️ **Oops! Something went wrong.**\n\nError: {str(e)}\n\nPlease try again or rephrase your question."
             })
         finally:
             self.is_loading = False
 
 
 def message_bubble(message: dict) -> rx.Component:
-    """Render a chat message bubble with premium styling"""
+    """Enhanced message bubble with markdown support"""
     is_user = message["role"] == "user"
     
     return rx.el.div(
         rx.el.div(
-            # Avatar
+            # Assistant Avatar
             rx.cond(
                 ~is_user,
                 rx.el.div(
-                    rx.icon("bot", class_name="w-5 h-5 text-white"),
-                    class_name="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 mr-3 flex-shrink-0"
+                    rx.el.div(
+                        "AI",
+                        class_name="text-xs font-bold text-white"
+                    ),
+                    class_name="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/40 mr-3 flex-shrink-0 animate-gradient"
                 ),
                 rx.fragment(),
             ),
             
-            # Bubble
+            # Message Content with Markdown
             rx.el.div(
-                rx.el.p(
+                rx.markdown(
                     message["content"],
                     class_name=rx.cond(
                         is_user,
-                        "text-white leading-relaxed",
-                        "text-gray-800 leading-relaxed"
+                        "text-white prose prose-invert prose-sm max-w-none prose-headings:text-white prose-p:text-white prose-strong:text-white prose-a:text-blue-200",
+                        "text-gray-800 prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-a:text-blue-600"
                     )
                 ),
                 class_name=rx.cond(
                     is_user,
-                    "bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl rounded-tr-sm px-5 py-3.5 shadow-md shadow-blue-500/20 max-w-lg transform transition-all hover:scale-[1.01]",
-                    "bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-5 py-3.5 shadow-sm max-w-lg"
+                    "bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-700 rounded-2xl rounded-tr-md px-5 py-4 shadow-lg shadow-blue-500/30 max-w-xl backdrop-blur-sm",
+                    "bg-white/90 backdrop-blur-sm border border-gray-100 rounded-2xl rounded-tl-md px-5 py-4 shadow-md max-w-xl"
                 ),
             ),
             
@@ -91,19 +112,28 @@ def message_bubble(message: dict) -> rx.Component:
             rx.cond(
                 is_user,
                 rx.el.div(
-                    rx.icon("user", class_name="w-5 h-5 text-blue-600"),
-                    class_name="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center ml-3 flex-shrink-0 border border-blue-100"
+                    rx.icon("user", class_name="w-4 h-4 text-blue-700"),
+                    class_name="w-9 h-9 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center ml-3 flex-shrink-0"
                 ),
                 rx.fragment(),
             ),
             
             class_name=rx.cond(
                 is_user,
-                "flex justify-end items-end mb-6 pl-12",
-                "flex justify-start items-end mb-6 pr-12",
+                "flex justify-end items-end mb-5 pl-16",
+                "flex justify-start items-end mb-5 pr-16",
             ),
         ),
-        class_name="w-full animate-in fade-in slide-in-from-bottom-2 duration-300"
+        class_name="w-full animate-in fade-in slide-in-from-bottom-3 duration-300"
+    )
+
+
+def quick_action_button(action: str) -> rx.Component:
+    """Quick action chip button"""
+    return rx.el.button(
+        action,
+        on_click=lambda: ChatbotState.send_quick_action(action),
+        class_name="px-4 py-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-gray-700 rounded-xl text-sm font-medium border border-purple-200/50 hover:border-purple-300 transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 whitespace-nowrap"
     )
 
 
@@ -112,89 +142,124 @@ def chatbot_page() -> rx.Component:
         navbar(),
         
         rx.el.div(
-            # Background Elements
+            # Animated Background
             rx.el.div(
-                class_name="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-50/50 to-transparent -z-10"
+                class_name="absolute inset-0 bg-gradient-to-br from-purple-50 via-white to-blue-50 -z-10"
             ),
             rx.el.div(
-                class_name="absolute top-20 right-0 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl -z-10 animate-pulse"
+                class_name="absolute top-0 right-0 w-96 h-96 bg-purple-300/20 rounded-full blur-3xl animate-pulse -z-10"
+            ),
+            rx.el.div(
+                class_name="absolute bottom-0 left-0 w-96 h-96 bg-blue-300/20 rounded-full blur-3xl animate-pulse delay-1000 -z-10"
             ),
             
             # Main Container
             rx.el.div(
-                # Header Section
+                # Header
                 rx.el.div(
-                    rx.el.h1(
-                        "AI Parking Assistant",
-                        class_name="text-4xl font-black text-gray-900 mb-3 tracking-tight"
+                    rx.el.div(
+                        rx.el.div(
+                            "✨",
+                            class_name="text-5xl mb-3 animate-bounce"
+                        ),
+                        rx.el.h1(
+                            "AI Parking Assistant",
+                            class_name="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 mb-3 tracking-tight"
+                        ),
+                        rx.el.p(
+                            "Your intelligent copilot for effortless parking",
+                            class_name="text-xl text-gray-600 mb-8 font-medium"
+                        ),
+                        class_name="text-center"
                     ),
-                    rx.el.p(
-                        "Your intelligent copilot for finding the perfect spot.",
-                        class_name="text-lg text-gray-500 mb-8"
-                    ),
-                    class_name="text-center pt-8"
+                    class_name="pt-8 pb-4"
                 ),
                 
-                # Chat Interface
+                # Chat Container
                 rx.el.div(
                     # Messages Area
                     rx.el.div(
+                        # Quick Actions (shown at top)
+                        rx.el.div(
+                            rx.el.p(
+                                "💡 Quick actions",
+                                class_name="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3"
+                            ),
+                            rx.el.div(
+                                rx.foreach(
+                                    ChatbotState.quick_actions,
+                                    quick_action_button
+                                ),
+                                class_name="flex gap-2 flex-wrap"
+                            ),
+                            class_name="mb-6 pb-6 border-b border-gray-100"
+                        ),
+                        
+                        # Chat Messages
                         rx.foreach(
-                            SimpleChatState.messages,
+                            ChatbotState.messages,
                             message_bubble
                         ),
                         
                         # Typing Indicator
                         rx.cond(
-                            SimpleChatState.is_loading,
+                            ChatbotState.is_loading,
                             rx.el.div(
                                 rx.el.div(
-                                    rx.icon("bot", class_name="w-5 h-5 text-white"),
-                                    class_name="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 mr-3"
+                                    rx.el.div(
+                                        "AI",
+                                        class_name="text-xs font-bold text-white"
+                                    ),
+                                    class_name="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/40 mr-3 animate-pulse"
                                 ),
                                 rx.el.div(
-                                    rx.el.div(class_name="w-2 h-2 bg-gray-400 rounded-full animate-bounce"),
-                                    rx.el.div(class_name="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"),
-                                    rx.el.div(class_name="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"),
-                                    class_name="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-4 shadow-sm flex gap-1.5 items-center h-12"
+                                    rx.el.div(class_name="w-2.5 h-2.5 bg-purple-600 rounded-full animate-bounce"),
+                                    rx.el.div(class_name="w-2.5 h-2.5 bg-purple-600 rounded-full animate-bounce [animation-delay:0.2s]"),
+                                    rx.el.div(class_name="w-2.5 h-2.5 bg-purple-600 rounded-full animate-bounce [animation-delay:0.4s]"),
+                                    class_name="bg-white/90 backdrop-blur-sm border border-gray-100 rounded-2xl rounded-tl-md px-5 py-4 shadow-md flex gap-2 items-center"
                                 ),
-                                class_name="flex justify-start items-end mb-6 animate-in fade-in duration-300"
+                                class_name="flex justify-start items-end mb-5 animate-in fade-in duration-300"
                             ),
                         ),
                         
                         id="chat-messages",
-                        class_name="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth"
+                        class_name="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent"
                     ),
                     
                     # Input Area
                     rx.el.div(
                         rx.el.form(
                             rx.el.div(
+                                # Input Field
                                 rx.el.input(
-                                    placeholder="Ask about parking availability, prices, or locations...",
-                                    value=SimpleChatState.current_message,
-                                    on_change=SimpleChatState.set_current_message,
-                                    class_name="flex-1 bg-gray-50 border-0 text-gray-900 placeholder-gray-400 focus:ring-0 focus:bg-white transition-colors px-4 py-3 text-base",
-                                    disabled=SimpleChatState.is_loading,
+                                    placeholder="Ask me anything about parking... (e.g., 'Find parking near KLCC')",
+                                    value=ChatbotState.current_message,
+                                    on_change=ChatbotState.set_current_message,
+                                    disabled=ChatbotState.is_loading,
+                                    class_name="flex-1 bg-transparent border-0 text-gray-900 placeholder-gray-400 focus:ring-0 px-5 py-4 text-base font-medium",
+                                    auto_focus=True,
                                 ),
+                                
+                                # Send Button
                                 rx.el.button(
                                     rx.cond(
-                                        SimpleChatState.is_loading,
+                                        ChatbotState.is_loading,
                                         rx.icon("loader-2", class_name="w-5 h-5 animate-spin"),
                                         rx.icon("send", class_name="w-5 h-5"),
                                     ),
                                     type="submit",
-                                    disabled=SimpleChatState.is_loading,
-                                    class_name="mx-2 p-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200",
+                                    disabled=ChatbotState.is_loading,
+                                    class_name="mr-2 p-3 bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 animate-gradient"
                                 ),
-                                class_name="flex items-center bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all duration-200 overflow-hidden p-1.5"
+                                
+                                class_name="flex items-center bg-gray-50/80 backdrop-blur-sm rounded-2xl border-2 border-gray-200 focus-within:border-purple-500 focus-within:ring-4 focus-within:ring-purple-500/10 transition-all duration-200"
                             ),
-                            on_submit=SimpleChatState.send_message,
+                            on_submit=ChatbotState.send_message,
                         ),
-                        class_name="p-4 md:p-6 bg-white border-t border-gray-100 rounded-b-3xl"
+                        class_name="p-5 md:p-6 bg-white/95 backdrop-blur-xl border-t border-gray-100"
                     ),
                     
-                    class_name="flex flex-col bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-gray-200/50 border border-white/50 h-[650px] max-w-3xl mx-auto relative overflow-hidden"
+                    class_name="flex flex-col bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-200/50 border border-white/80 h-[700px] max-w-4xl mx-auto relative overflow-hidden ring-1 ring-gray-100"
                 ),
                 
                 class_name="max-w-7xl mx-auto px-4 sm:px-6 pb-12 relative z-10"
@@ -202,6 +267,6 @@ def chatbot_page() -> rx.Component:
         ),
         
         footer(),
-        class_name="min-h-screen bg-gray-50 font-['Inter',sans-serif]",
-        on_mount=SimpleChatState.on_load
+        class_name="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 font-['Inter',sans-serif]",
+        on_mount=ChatbotState.on_load
     )

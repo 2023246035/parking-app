@@ -123,12 +123,28 @@ def step_1_datetime() -> rx.Component:
 
 
 def slot_card(slot_id: str, is_available: bool) -> rx.Component:
-    """Individual slot card"""
+    """Individual slot card - supports multi-select"""
     return rx.el.button(
         rx.el.div(
             rx.icon(
-                rx.cond(is_available, "check-circle", "x-circle"),
-                class_name=rx.cond(is_available, "h-5 w-5 text-green-500", "h-5 w-5 text-red-400"),
+                rx.cond(
+                    is_available,
+                    rx.cond(
+                        BookingState.selected_slots.contains(slot_id),
+                        "check-circle-2",  # Selected - filled check
+                        "circle"  # Available - empty circle
+                    ),
+                    "x-circle"  # Unavailable
+                ),
+                class_name=rx.cond(
+                    is_available,
+                    rx.cond(
+                        BookingState.selected_slots.contains(slot_id),
+                        "h-5 w-5 text-sky-600",  # Selected - blue
+                        "h-5 w-5 text-green-500"  # Available - green
+                    ),
+                    "h-5 w-5 text-red-400"  # Unavailable
+                ),
             ),
             rx.el.span(
                 slot_id,
@@ -136,10 +152,10 @@ def slot_card(slot_id: str, is_available: bool) -> rx.Component:
             ),
             class_name="flex flex-col items-center gap-1",
         ),
-        on_click=BookingState.select_slot(slot_id),
+        on_click=BookingState.toggle_slot_selection(slot_id),
         disabled=~is_available,
         class_name=rx.cond(
-            BookingState.selected_slot == slot_id,
+            BookingState.selected_slots.contains(slot_id),
             "p-3 rounded-xl border-2 border-sky-500 bg-sky-50 transition-all shadow-md cursor-pointer scale-105",
             rx.cond(
                 is_available,
@@ -204,9 +220,13 @@ def step_2_slots() -> rx.Component:
                 ),
                 
                 rx.el.button(
-                    "Continue to Details →",
+                    rx.cond(
+                        BookingState.total_slots_selected > 0,
+                        f"Continue with {BookingState.total_slots_selected} slot(s) →",
+                        "Select at least 1 slot to continue"
+                    ),
                     on_click=BookingState.proceed_to_details,
-                    disabled=BookingState.selected_slot == "",
+                    disabled=BookingState.total_slots_selected == 0,
                     class_name="w-full px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
                 ),
             ),
@@ -214,8 +234,39 @@ def step_2_slots() -> rx.Component:
     )
 
 
+def vehicle_detail_card(slot_id: str) -> rx.Component:
+    """Form for entering vehicle details for one slot"""
+    return rx.el.div(
+        rx.el.div(
+            rx.icon("square-parking", class_name="h-5 w-5 text-sky-600"),
+            rx.el.h4(f"Slot {slot_id}", class_name="text-base font-bold text-gray-900"),
+            class_name="flex items-center gap-2 mb-3"
+        ),
+        rx.el.div(
+            rx.el.label("Vehicle Number", class_name="block text-sm font-semibold text-gray-700 mb-2"),
+            rx.el.input(
+                placeholder="e.g. ABC 1234",
+                value=BookingState.vehicle_details.get(slot_id, {}).get("vehicle_number", ""),
+                on_change=lambda val: BookingState.set_slot_vehicle_number(slot_id, val),
+                class_name="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 uppercase transition-all",
+            ),
+            class_name="mb-3"
+        ),
+        rx.el.div(
+            rx.el.label("Driver Name (Optional)", class_name="block text-sm font-semibold text-gray-700 mb-2"),
+            rx.el.input(
+                placeholder="e.g. John Doe",
+                value=BookingState.vehicle_details.get(slot_id, {}).get("driver_name", ""),
+                on_change=lambda val: BookingState.set_slot_driver_name(slot_id, val),
+                class_name="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 transition-all",
+            ),
+        ),
+        class_name="p-4 rounded-xl border-2 border-sky-100 bg-sky-50/30 mb-4"
+    )
+
+
 def step_3_details() -> rx.Component:
-    """Step 3: Vehicle & Contact Info"""
+    """Step 3: Vehicle Details for Each Slot"""
     return rx.el.div(
         rx.el.div(
             rx.el.button(
@@ -224,34 +275,30 @@ def step_3_details() -> rx.Component:
                 on_click=BookingState.go_back_to_step_2,
                 class_name="flex items-center text-sm text-gray-600 hover:text-gray-900 font-medium mb-4 transition-colors",
             ),
-            rx.el.h3("Vehicle & Contact", class_name="text-lg font-bold text-gray-900 mb-1"),
-            rx.el.p("Enter your details for verification", class_name="text-sm text-gray-500 mb-6"),
+            rx.el.h3("Vehicle Details", class_name="text-lg font-bold text-gray-900 mb-1"),
+            rx.el.p(
+                f"Provide vehicle information for {BookingState.total_slots_selected} selected slot(s)",
+                class_name="text-sm text-gray-500 mb-6"
+            ),
         ),
         
-        # Vehicle Number
+        # Vehicle details for each slot
         rx.el.div(
-            rx.el.label("Vehicle Number", class_name="block text-sm font-semibold text-gray-700 mb-2"),
-            rx.el.input(
-                placeholder="e.g. ABC 1234",
-                value=BookingState.vehicle_number,
-                on_change=BookingState.set_vehicle_number,
-                class_name="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 uppercase transition-all",
+            rx.foreach(
+                BookingState.selected_slots,
+                lambda slot: vehicle_detail_card(slot)
             ),
-            rx.cond(
-                BookingState.error_vehicle != "",
-                rx.el.p(BookingState.error_vehicle, class_name="text-xs text-red-600 mt-1 font-medium"),
-            ),
-            class_name="mb-5",
+            class_name="mb-6 max-h-96 overflow-y-auto"
         ),
         
-        # Phone Number
+        # Single phone number for all bookings
         rx.el.div(
-            rx.el.label("Phone Number", class_name="block text-sm font-semibold text-gray-700 mb-2"),
+            rx.el.label("Contact Phone Number (for all bookings)", class_name="block text-sm font-semibold text-gray-700 mb-2"),
             rx.el.input(
                 placeholder="e.g. 0123456789",
                 value=BookingState.phone_number,
                 on_change=BookingState.set_phone_number,
-                class_name="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 transition-all",
+                class_name="w-full rounded-xl border-2 border-sky-200 px-4 py-3 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 transition-all",
             ),
             rx.cond(
                 BookingState.error_phone != "",
@@ -261,7 +308,7 @@ def step_3_details() -> rx.Component:
         ),
         
         rx.el.button(
-            "Review Booking →",
+            "Review All Bookings →",
             on_click=BookingState.proceed_to_review,
             class_name="w-full px-6 py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]",
         ),
@@ -280,7 +327,7 @@ def summary_row(label: str, value: str, is_total: bool = False) -> rx.Component:
 
 
 def step_4_review() -> rx.Component:
-    """Step 4: Review & Confirm"""
+    """Step 4: Review All Bookings & Confirm"""
     return rx.el.div(
         rx.el.div(
             rx.el.button(
@@ -289,27 +336,68 @@ def step_4_review() -> rx.Component:
                 on_click=BookingState.go_back_to_step_3,
                 class_name="flex items-center text-sm text-gray-600 hover:text-gray-900 font-medium mb-4 transition-colors",
             ),
-            rx.el.h3("Review Booking", class_name="text-lg font-bold text-gray-900 mb-1"),
-            rx.el.p("Please confirm your details", class_name="text-sm text-gray-500 mb-6"),
+            rx.el.h3("Review All Bookings", class_name="text-lg font-bold text-gray-900 mb-1"),
+            rx.el.p(f"Confirming {BookingState.total_slots_selected} parking slot(s)", class_name="text-sm text-gray-500 mb-6"),
         ),
         
         rx.el.div(
+            # Parking lot & timing details
             summary_row("Parking Lot", BookingState.selected_lot.name),
             summary_row("Location", BookingState.selected_lot.location),
             rx.el.div(class_name="h-px bg-gray-100 my-3"),
             summary_row("Date", BookingState.start_date),
             summary_row("Time", BookingState.start_time),
             summary_row("Duration", f"{BookingState.duration_hours} Hours"),
-            summary_row("Selected Slot", BookingState.selected_slot),
             rx.el.div(class_name="h-px bg-gray-100 my-3"),
-            summary_row("Vehicle", BookingState.vehicle_number),
-            summary_row("Phone", BookingState.phone_number),
-            summary_row("Total Amount", f"RM {BookingState.estimated_price:.2f}", is_total=True),
+            
+            # Selected slots with vehicle details
+            rx.el.div(
+                rx.el.span("Selected Slots", class_name="text-gray-600 font-semibold text-sm mb-2 block"),
+                rx.foreach(
+                    BookingState.selected_slots,
+                    lambda slot: rx.el.div(
+                        rx.el.div(
+                            rx.icon("square-parking", class_name="h-4 w-4 text-sky-600"),
+                            rx.el.span(f"Slot {slot}", class_name="font-bold text-gray-900"),
+                            class_name="flex items-center gap-2 mb-1"
+                        ),
+                        rx.el.div(
+                            rx.el.span("Vehicle: ", class_name="text-gray-600 text-sm"),
+                            rx.el.span(
+                                BookingState.vehicle_details.get(slot, {}).get("vehicle_number", "N/A"),
+                                class_name="text-gray-900 text-sm font-semibold"
+                            ),
+                            class_name="ml-6"
+                        ),
+                        rx.cond(
+                            BookingState.vehicle_details.get(slot, {}).get("driver_name", "") != "",
+                            rx.el.div(
+                                rx.el.span("Driver: ", class_name="text-gray-600 text-sm"),
+                                rx.el.span(
+                                    BookingState.vehicle_details.get(slot, {}).get("driver_name", ""),
+                                    class_name="text-gray-900 text-sm"
+                                ),
+                                class_name="ml-6 mb-2"
+                            ),
+                        ),
+                        class_name="mb-3 pb-3 border-b border-gray-100 last:border-0"
+                    )
+                ),
+                class_name="mb-3"
+            ),
+            
+            rx.el.div(class_name="h-px bg-gray-100 my-3"),
+            summary_row("Contact Phone", BookingState.phone_number),
+            summary_row(
+                "Total Amount", 
+                f"RM {BookingState.total_price_all_slots:.2f} ({BookingState.total_slots_selected} slots)", 
+                is_total=True
+            ),
             class_name="bg-gray-50 p-5 rounded-xl mb-8 border border-gray-100",
         ),
         
         rx.el.button(
-            "Confirm & Pay",
+            f"Confirm & Pay RM {BookingState.total_price_all_slots:.2f}",
             on_click=BookingState.proceed_to_payment,
             class_name="w-full px-6 py-3.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]",
         ),

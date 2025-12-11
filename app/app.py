@@ -31,11 +31,21 @@ from app.services.notification_service import start_scheduler
 class AppState(rx.State):
     @rx.event
     def on_load(self):
-        try:
-            init_db()
-            start_scheduler()
-        except Exception as e:
-            logging.exception(f"Error initializing DB: {e}")
+        """Called when a page loads - lightweight operations only"""
+        pass
+
+
+# Initialize database and start background services at app startup
+try:
+    logging.info("🚀 Initializing ParkMyCar application...")
+    init_db()
+    logging.info("✅ Database initialized")
+    
+    # Start background scheduler for auto-bookings and reminders
+    start_scheduler()
+    logging.info("✅ Background scheduler started (auto-bookings & email reminders)")
+except Exception as e:
+    logging.exception(f"❌ Error during app initialization: {e}")
 
 
 app = rx.App(

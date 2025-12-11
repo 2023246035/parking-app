@@ -35,25 +35,155 @@ class ChatbotCache:
 class ParkingChatbot:
     """Enhanced AI-powered chatbot for parking assistance"""
 
-    # Enhanced intent detection with better keywords
+    # MASSIVELY EXPANDED INTENT KEYWORDS - COMPREHENSIVE COVERAGE
     INTENTS = {
-        "book": ["book", "reserve", "parking", "spot", "need", "want", "find", "search", "looking for"],
-        "check_availability": ["available", "free", "spots", "spaces", "check", "vacancy", "open", "empty"],
-        "get_info": ["info", "information", "details", "about", "price", "location", "tell me", "what is", "how much"],
-        "my_bookings": ["my booking", "my reservation", "show booking", "view booking", "my spots"],
-        "cancel": ["cancel", "remove", "delete", "refund"],
-        "pricing": ["price", "cost", "cheap", "expensive", "rate", "fee"],
-        "help": ["help", "what can you do", "how", "assist", "commands"],
-        "greeting": ["hi", "hello", "hey", "good morning", "good afternoon", "sup", "yo"]
+        # 1. BOOKING INTENT - Super Expanded
+        "book": [
+            # Original
+            "book", "reserve", "parking", "spot", "need", "want", "find", "search", "looking for",
+            "near me", "nearby", "location", "give", "show me", "list", "get", "where",
+            # NEW - Availability variations
+            "available", "availability", "free slots", "open spots", "find parking",
+            # NEW - Proximity
+            "closest", "nearest", "around me", "close to me", "near my place", "near my location",
+            # NEW - Suggestions
+            "any parking", "suggest", "recommend", "best spot", "find lot", "look for parking",
+            # NEW - Actions
+            "park", "parking place", "search parking", "any slots", "give options",
+            # NEW - Current status
+            "latest availability", "current availability"
+        ],
+        
+        # 2. CHECK AVAILABILITY INTENT - Enhanced
+        "check_availability": [
+            "available", "free", "spots", "spaces", "check", "vacancy", "open", "empty", "any",
+            # NEW
+            "available now", "availability", "any empty", "any free", "is parking free",
+            "is slot free", "show free spots", "free now", "any space", "any vacancy"
+        ],
+        
+        # 3. PRICING INTENT - Comprehensive
+        "pricing": [
+            "price", "cost", "cheap", "expensive", "rate", "fee", "cheapest", "affordable",
+            # NEW
+            "pricing", "charges", "how much", "per hour", "price list", "low price",
+            "budget", "cheap parking", "compare prices", "best price"
+        ],
+        
+        # 4. LOCATION INTENT - NEW!
+        "location": [
+            "address", "where is", "location list", "map", "directions", "how to reach",
+            "show map", "display locations", "lot locations", "parking locations",
+            "route to parking", "navigate", "gps", "coordinates"
+        ],
+        
+        # 5. MY BOOKINGS INTENT
+        "my_bookings": [
+            "my booking", "my reservation", "show booking", "view booking", "my spots",
+            "my history", "past bookings", "upcoming bookings", "booking history"
+        ],
+        
+        # 6. CANCEL INTENT - Enhanced
+        "cancel": [
+            "cancel", "remove", "delete",
+            # NEW
+            "cancel booking", "stop booking", "undo booking", "remove booking",
+            "delete booking", "close booking", "cancel my slot", "cancel reservation"
+        ],
+        
+        # 7. REFUND INTENT - NEW!
+        "refund": [
+            "refund", "money back", "refund status", "how much refund", "refund amount",
+            "refund policy", "eligible for refund", "cancel refund", "my refund",
+            "why refund", "when refund", "get money back", "return money"
+        ],
+        
+        # 8. HELP INTENT - Comprehensive
+        "help": [
+            "help", "what can you do", "how", "assist", "commands", "guide", "options",
+            # NEW
+            "how it works", "instructions", "explain", "features", "support",
+            "show menu", "what options", "tell me options", "what services",
+            "how to book", "help me", "tutorial", "faq"
+        ],
+        
+        # 9. GET INFO INTENT
+        "get_info": [
+            "info", "information", "details", "about", "tell me", "what is", "how much",
+            "description", "overview", "specifics"
+        ],
+        
+        # 10. ADMIN INTENT - NEW!
+        "admin": [
+            "admin login", "dashboard", "manage users", "view bookings", "update price",
+            "add lot", "delete lot", "admin help", "analytics", "reports",
+            "admin panel", "management", "admin access"
+        ],
+        
+        # 11. GREETING Intent - Expanded
+        "greeting": [
+            "hi", "hello", "hey", "good morning", "good afternoon", "sup", "yo", "howdy",
+            # NEW
+            "good evening", "how are you", "greetings", "hi there", "hello there"
+        ],
+        
+        # 12. ACKNOWLEDGMENT Intent
+        "acknowledgment": [
+            "ok", "okay", "thanks", "thank you", "alright", "got it", "noted", "fine", "cool",
+            # NEW
+            "thank you very much", "appreciate it", "understood"
+        ],
+        
+        # 13. FAREWELL Intent - NEW!
+        "farewell": [
+            "bye", "goodbye", "see you", "later", "exit", "quit", "done", "that's all",
+            "thank you bye", "thanks bye"
+        ],
+        
+        # 14. ABOUT APP Intent
+        "about_app": [
+            "about", "what is this", "tell me about", "app info", "how does this work",
+            "explain", "what app", "app details"
+        ],
+        
+        # 15. POSITIVE Intent
+        "positive": [
+            "yes", "yep", "yeah", "sure", "confirm", "correct", "right", "absolutely",
+            "definitely", "agreed", "proceed"
+        ],
+        
+        # 16. NEGATIVE SENTIMENT Intent - NEW!
+        "negative_sentiment": [
+            "bad", "not working", "issue", "problem", "error", "angry", "upset",
+            "why not", "complaint", "fix this", "useless", "hate", "terrible",
+            "disappointed", "frustrating", "broken"
+        ],
+        
+        # 17. NEGATIVE Response Intent (regular no)
+        "negative": [
+            "no", "nope", "nah", "stop", "nevermind", "not interested", "decline"
+        ]
     }
 
     @staticmethod
     def detect_intent(user_message: str) -> str:
         """Enhanced intent detection with priority"""
-        message_lower = user_message.lower()
+        message_lower = user_message.lower().strip()
+        
+        # Handle very short messages
+        if len(message_lower) <= 2:
+            if message_lower in ["hi", "yo"]:
+                return "greeting"
+            elif message_lower in ["ok", "k"]:
+                return "acknowledgment"
+            return "unknown"
 
         # Priority order - more specific intents first
-        intent_priority = ["pricing", "book", "check_availability", "my_bookings", "cancel", "get_info", "help", "greeting"]
+        intent_priority = [
+            "greeting", "acknowledgment", "positive", "negative",
+            "about_app", "pricing", "book", "check_availability", 
+            "my_bookings", "cancel", "get_info", "help"
+        ]
         
         for intent in intent_priority:
             keywords = ParkingChatbot.INTENTS.get(intent, [])
@@ -129,6 +259,73 @@ class ParkingChatbot:
                     "Find parking near KLCC",
                     "Show cheapest spots",
                     "Check availability"
+                ]
+
+            elif intent == "acknowledgment":
+                response_data["response"] = (
+                    "👍 **Great!**\n\n"
+                    "Is there anything else I can help you with?\n\n"
+                    "You can:\n"
+                    "• Find parking spots\n"
+                    "• Check availability\n"
+                    "• Compare prices\n"
+                    "• View your bookings"
+                )
+                response_data["suggestions"] = [
+                    "Find parking",
+                    "Check availability",
+                    "Show my bookings"
+                ]
+
+            elif intent == "about_app":
+                response_data["response"] = (
+                   "🚗 **About ParkMyCar**\n\n"
+                    "ParkMyCar is your smart parking assistant that makes finding and booking parking spots effortless!\n\n"
+                    "**🎯 Key Features:**\n"
+                    "• **Smart Search** - Find parking by location, price, or rating\n"
+                    "• **Real-time Availability** - See live spots across all locations\n"
+                    "• **Multi-Slot Booking** - Book multiple slots at once\n"
+                    "• **QR Codes** - Easy check-in with QR codes\n"
+                    "• **Auto-Booking** - Set up recurring bookings\n"
+                    "• **Price Comparison** - Find the best deals\n"
+                    "• **Email Reminders** - Never miss your booking\n\n"
+                    "**💡 How it works:**\n"
+                    "1. Browse available parking lots\n"
+                    "2. Select date, time & slot\n"
+                    "3. Enter vehicle details\n"
+                    "4. Pay securely\n"
+                    "5. Get confirmation & QR code!\n\n"
+                    "**Ready to find parking?** 🅿️"
+                )
+                response_data["suggestions"] = [
+                    "Find parking",
+                    "Check availability",
+                    "Show prices"
+                ]
+
+            elif intent == "positive":
+                response_data["response"] = (
+                    "✅ **Perfect!**\n\n"
+                    "How can I assist you further?\n\n"
+                    "Try asking:\n"
+                    "• 'Find parking near [location]'\n"
+                    "• 'Show available spots'\n"
+                    "• 'Compare prices'"
+                )
+                response_data["suggestions"] = [
+                    "Find parking",
+                    "Check availability"
+                ]
+
+            elif intent == "negative":
+                response_data["response"] = (
+                    "👌 **No problem!**\n\n"
+                    "Let me know if you change your mind or need anything else.\n\n"
+                    "I'm here to help! 😊"
+                )
+                response_data["suggestions"] = [
+                    "Find parking",
+                    "Help"
                 ]
 
             elif intent == "pricing":

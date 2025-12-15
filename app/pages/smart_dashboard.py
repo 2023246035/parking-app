@@ -153,8 +153,8 @@ class SmartDashboardState(rx.State):
 
     @rx.event
     def on_load(self):
-        """Load rules from database on page load and process them"""
-        return [SmartDashboardState.load_rules, SmartDashboardState.load_locations, SmartDashboardState.process_rules]
+        """Load rules from database on page load"""
+        return [SmartDashboardState.load_rules, SmartDashboardState.load_locations]
 
     @rx.event
     async def process_rules(self):

@@ -1,9 +1,88 @@
-.states
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.api
+!.env.email.example
+
+# Python
+__pycache__/
 *.py[cod]
-*.db
-.web
-assets/external/
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Reflex
 .web/
 .states/
-__pycache__/
-/app/__pycache__/
+reflex.db
+*.db
+*.db-journal
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+output.log
+output.txt
+email_test_output.txt
+
+# Docker
+docker-compose.override.yml
+
+# Backup files
+*.sql
+*backup*.sql
+aiven-migration-backup.sql
+
+# Uploaded files (keep structure, ignore content)
+uploaded_files/*
+!uploaded_files/.gitkeep
+
+# Node
+node_modules/
+package-lock.json
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Migrations (optional - comment out if you want to track)
+# alembic/versions/*.py
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

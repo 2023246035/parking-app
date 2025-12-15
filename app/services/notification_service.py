@@ -9,10 +9,14 @@ import os
 # Scheduler instance
 scheduler = BackgroundScheduler()
 
+def get_database_url():
+    """Get database URL from environment or use default SQLite"""
+    return os.getenv("DATABASE_URL", "sqlite:///reflex.db")
+
 def check_upcoming_bookings():
     """Check for bookings starting in the next ~1 hour and send reminders."""
-    # Use generic generic URL or env var if available
-    DATABASE_URL = "sqlite:///reflex.db"
+    DATABASE_URL = get_database_url()
+    
     
     try:
         engine = create_engine(DATABASE_URL)
@@ -88,7 +92,9 @@ def check_upcoming_bookings():
 
 def process_auto_booking_rules():
     """Automatically process booking rules and create bookings for tomorrow."""
-    DATABASE_URL = "sqlite:///reflex.db"
+    DATABASE_URL = get_database_url()
+    logging.info("🤖 Auto-booking scheduler running...")
+    
     
     try:
         engine = create_engine(DATABASE_URL)
@@ -225,12 +231,13 @@ def start_scheduler():
         # Email reminders every 5 minutes
         scheduler.add_job(check_upcoming_bookings, 'interval', minutes=5)
         
-        # Auto-booking processing every hour (runs at minute 0 of every hour)
-        scheduler.add_job(process_auto_booking_rules, 'cron', hour='*', minute=0)
+        # Auto-booking processing every 10 minutes (more responsive than hourly)
+        # This will check for rules and create bookings throughout the day
+        scheduler.add_job(process_auto_booking_rules, 'interval', minutes=10)
         
         try:
             scheduler.start()
-            logging.info("📅 Notification Scheduler started.")
-            logging.info("🤖 Auto-booking Scheduler started (runs hourly).")
+            logging.info("📅 Notification Scheduler started (every 5 minutes).")
+            logging.info("🤖 Auto-booking Scheduler started (every 10 minutes).")
         except Exception as e:
             logging.error(f"Failed to start scheduler: {e}")

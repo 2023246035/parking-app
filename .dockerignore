@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Reflex specific
+.web/
+.states/
+reflex.db
+parking.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Environment files (these should be provided via docker-compose or secrets)
+.env
+.env.local
+
+# Test files
+test_*.py
+check_*.py
+*_test.py
+tests/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+output.txt
+output.log
+email_test_output.txt
+
+# Temporary files
+*.tmp
+*.temp
+
+# Documentation
+*.md
+!README.md
+
+# Migration scripts (if you want to exclude them)
+migrate_*.py
+add_*.py
+setup_*.py
+seed_*.py
+view_database.py
+create_test_booking.py
+create_future_booking.py
+force_cancel_*.py
+ensure_*.py
+analyze_*.py
+
+# Node modules (if any)
+node_modules/
+package-lock.json
+
+# OS files
+.DS_Store
+Thumbs.db

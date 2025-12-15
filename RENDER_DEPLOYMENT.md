@@ -30,7 +30,7 @@ Password: AVNS_5YJdZbRWiC3tQvycUB5
 
 **Your DATABASE_URL:**
 ```
-postgresql://avnadmin:AVNS_5YJdZbRWiC3tQvycUB5@pg-2e6a6e28-vijayfinforz-082a.h.aivencloud.com:23732/defaultdb?sslmode=require
+postgresql://avnadmin:YOUR_AIVEN_PASSWORD_HERE@pg-2e6a6e28-vijayfinforz-082a.h.aivencloud.com:23732/defaultdb?sslmode=require
 ```
 
 ⚠️ **NEVER commit this to Git!**

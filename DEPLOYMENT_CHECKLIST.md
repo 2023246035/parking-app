@@ -15,7 +15,7 @@
 Copy these to Render Dashboard → Environment:
 
 ```env
-DATABASE_URL=postgresql://avnadmin:AVNS_5YJdZbRWiC3tQvycUB5@pg-2e6a6e28-vijayfinforz-082a.h.aivencloud.com:23732/defaultdb?sslmode=require
+DATABASE_URL=postgresql://avnadmin:YOUR_AIVEN_PASSWORD_HERE@pg-2e6a6e28-vijayfinforz-082a.h.aivencloud.com:23732/defaultdb?sslmode=require
 
 PORT=8000
 

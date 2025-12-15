@@ -1,0 +1,50 @@
+# Dockerfile for ParkMyCar API-Only Deployment
+# This runs only the FastAPI backend without the Reflex frontend
+
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    libpq-dev \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install additional API-specific dependencies
+RUN pip install --no-cache-dir \
+    uvicorn[standard] \
+    python-multipart \
+    slowapi \
+    python-jose[cryptography]
+
+# Copy application code
+COPY app/ ./app/
+# Note: .env files not needed - environment variables provided by Render
+
+# Create necessary directories
+RUN mkdir -p /app/uploaded_files
+
+# Expose API port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+
+# Run the FastAPI application with uvicorn
+# Uses PORT env variable (required by Render)
+CMD uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000}

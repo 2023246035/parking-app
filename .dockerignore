@@ -20,12 +20,13 @@ ENV/
 reflex.db
 parking.db
 
-# Reflex frontend files (exclude from API-only image)
-app/app.py
-app/pages/
-app/components/
-rxconfig.py
-assets/
+# Reflex frontend files (only exclude for API-only Docker builds using Dockerfile.api)
+# For full app deployment (Dockerfile), these files ARE needed
+# app/app.py
+# app/pages/
+# app/components/
+# rxconfig.py
+# assets/
 
 # IDE
 .vscode/

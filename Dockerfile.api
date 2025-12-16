@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir \
     python-jose[cryptography]
 
 # Copy application code
+# Cache buster: 2025-12-16-v2
 COPY app/ ./
 # Note: .env files not needed - environment variables provided by Render
 

@@ -1,11 +1,11 @@
 psycopg2-binary
 alembic
-reflex
+reflex==0.8.20
 sqlmodel
 sqlalchemy
 fastapi
-reflex==0.8.20
 boto3
 python-dotenv
 apscheduler
-apscheduler
+qrcode
+pillow

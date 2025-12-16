@@ -32,9 +32,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Initialize Reflex (this builds the frontend)
-RUN reflex init
-
 # Expose ports
 EXPOSE 3000 8000
 
@@ -42,9 +39,9 @@ EXPOSE 3000 8000
 ENV PYTHONPATH=/app
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3000 || exit 1
 
 # Run the full Reflex application
-# Uses PORT env variable for backend (Render requirement)
-CMD ["bash", "-c", "reflex run --env prod --backend-port ${PORT:-8000} --frontend-port 3000"]
+# Reflex will build the frontend on first run
+CMD ["bash", "-c", "reflex run --env prod --backend-host 0.0.0.0 --backend-port ${PORT:-8000} --frontend-port 3000"]

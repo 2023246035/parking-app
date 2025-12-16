@@ -33,8 +33,8 @@ RUN pip install --no-cache-dir \
     python-jose[cryptography]
 
 # Copy application code
-# Cache buster: 2025-12-16-v2
-COPY app/ ./
+# Cache buster: 2025-12-16-v3
+COPY app/ ./app/
 # Note: .env files not needed - environment variables provided by Render
 
 # Create necessary directories
@@ -52,4 +52,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 
 # Run the FastAPI application with uvicorn
 # Uses PORT env variable (required by Render)
-CMD ["bash", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["bash", "-c", "uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

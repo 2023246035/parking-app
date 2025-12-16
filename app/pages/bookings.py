@@ -462,7 +462,7 @@ def booking_card_with_actions(booking: Booking) -> rx.Component:
                     ),
                 ),
                 rx.cond(
-                    booking.status == "Confirmed",
+                    (booking.status == "Confirmed") & BookingState.cancellable_booking_ids.contains(booking.id),
                     rx.el.button(
                         rx.icon("x-circle", class_name="h-4 w-4"),
                         rx.el.span("Cancel", class_name="ml-2 max-w-0 overflow-hidden opacity-0 whitespace-nowrap group-hover:max-w-xs group-hover:opacity-100 transition-all duration-200"),

@@ -89,6 +89,35 @@ class BookingState(rx.State):
                 continue
         
         return reschedulable_ids
+
+    @rx.var
+    def cancellable_booking_ids(self) -> list[str]:
+        """Return list of booking IDs that can be cancelled (before start time)"""
+        from datetime import datetime
+        import logging
+        
+        cancellable_ids = []
+        
+        for booking in self.active_bookings:
+            try:
+                # Parse booking start time
+                booking_start = datetime.strptime(
+                    f"{booking.start_date} {booking.start_time}",
+                    "%Y-%m-%d %H:%M"
+                )
+                
+                # Check if booking hasn't started yet
+                if datetime.now() < booking_start:
+                    cancellable_ids.append(booking.id)
+                    logging.info(f"✅ Booking {booking.id} can be cancelled (starts at {booking.start_date} {booking.start_time})")
+                else:
+                    logging.info(f"❌ Booking {booking.id} cannot be cancelled (already started)")
+                    
+            except Exception as e:
+                logging.error(f"Error checking booking {booking.id}: {e}")
+                continue
+        
+        return cancellable_ids
     
     # Payment form fields
     card_number: str = ""

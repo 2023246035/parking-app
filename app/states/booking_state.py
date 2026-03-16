@@ -947,14 +947,10 @@ class BookingState(rx.State):
             yield rx.toast.error(f"Correction Needed: {error_msg}")
             return
         
-        # STEP 2: Validate payment fields
-        if not self.validate_payment():
-            yield rx.toast.error("Please enter valid payment details")
-            return
-
         self.is_processing_payment = True
-        await asyncio.sleep(1.0)
         from app.states.auth_state import AuthState
+        from app.services.ringgitpay_service import RinggitPayService
+        import os
 
         auth_state = await self.get_state(AuthState)
         user_email = auth_state.email or auth_state.session_email
@@ -962,6 +958,7 @@ class BookingState(rx.State):
             self.is_processing_payment = False
             yield rx.toast.error("User not identified.")
             return
+
         try:
             with rx.session() as session:
                 user = session.exec(
@@ -973,26 +970,18 @@ class BookingState(rx.State):
                 if not lot:
                     raise ValueError("Parking lot not found")
                 
-                # Check if lot has enough spots for all selected slots
+                # Check if lot has enough spots
                 if lot.available_spots < len(self.selected_slots):
                     self.payment_error = f"Not enough spots available. Only {lot.available_spots} left."
                     self.is_processing_payment = False
                     yield rx.toast.error("Booking Failed: Not enough spots available.")
                     return
                 
-                # Simulate payment failure
-                if random.random() > 0.98:
-                    self.payment_error = "Payment declined by bank."
-                    self.is_processing_payment = False
-                    yield rx.toast.error("Payment Failed")
-                    return
-                
-                # Create transaction ID for this payment
-                transaction_id = f"TXN_{str(uuid.uuid4())[:8].upper()}"
+                # Create a unique Order ID for RinggitPay
+                order_id = f"BK-{str(uuid.uuid4())[:8].upper()}"
                 timestamp = datetime.now()
-                created_booking_ids = []
                 
-                # Create one booking for EACH selected slot
+                # Create one booking for EACH selected slot with "Pending" status
                 for slot_id in self.selected_slots:
                     vehicle_info = self.vehicle_details.get(slot_id, {})
                     vehicle_number = vehicle_info.get("vehicle_number", "UNKNOWN")
@@ -1003,109 +992,67 @@ class BookingState(rx.State):
                         start_date=self.start_date,
                         start_time=self.start_time,
                         duration_hours=self.duration_hours,
-                        total_price=self.selected_lot.price_per_hour * self.duration_hours,  # Price per individual slot
-                        status="Confirmed",
-                        payment_status="Paid",
-                        transaction_id=transaction_id,  # Same transaction for all
+                        total_price=self.selected_lot.price_per_hour * self.duration_hours,
+                        status="Pending",
+                        payment_status="Unpaid",
+                        transaction_id=order_id,  # Use as orderId for RP
                         slot_id=slot_id,
                         vehicle_number=vehicle_number,
                         phone_number=self.phone_number,
                         created_at=timestamp,
                     )
                     session.add(new_booking)
-                    session.flush()
-                    created_booking_ids.append(new_booking.id)
                 
-                # Create single payment for total amount
-                new_payment = DBPayment(
-                    transaction_id=transaction_id,
-                    booking_id=created_booking_ids[0] if created_booking_ids else None,  # Link to first booking
-                    amount=self.total_price_all_slots,  # Total for all slots
-                    status="Success",
-                    timestamp=timestamp,
-                    method="Credit Card",
-                )
-                session.add(new_payment)
-                
-                # Update available spots (reduce by number of slots booked)
                 lot.available_spots -= len(self.selected_slots)
                 session.add(lot)
-                
-                # Create audit log
-                slot_list = ", ".join(self.selected_slots)
-                new_audit = DBAuditLog(
-                    action="Multi-Slot Booking Created",
-                    timestamp=timestamp,
-                    details=f"Created {len(self.selected_slots)} bookings ({slot_list}) for {lot.name}. Total: RM {self.total_price_all_slots:.2f}",
-                    user_id=user.id,
-                )
-                session.add(new_audit)
                 session.commit()
 
-                # Send Confirmation Email
-                try:
-                    from app.services.email_service import send_booking_confirmation_email, send_payment_success_email
-                    
-                    logging.info(f"🔔 Attempting to send booking confirmation email to {user.email}")
-                    
-                    # Send confirmation for the first booking (or could send one email with all details)
-                    booking_details = {
-                        "user_name": user.full_name or "User",
-                        "lot_name": lot.name,
-                        "start_date": self.start_date,
-                        "start_time": self.start_time,
-                        "duration": self.duration_hours,
-                        "slot_id": slot_list,  # All slots
-                        "vehicle_number": ", ".join([self.vehicle_details.get(s, {}).get("vehicle_number", "N/A") for s in self.selected_slots]),
-                        "total_price": self.total_price_all_slots,
-                        "payment_status": "Paid"
-                    }
-                    
-                    confirmation_sent = send_booking_confirmation_email(user.email, booking_details)
-                    if confirmation_sent:
-                        logging.info(f"✅ Booking confirmation email sent successfully to {user.email}")
-                    else:
-                        logging.warning(f"⚠️ Booking confirmation email FAILED to send to {user.email}")
-                    
-                    # Send Payment Receipt
-                    payment_details = {
-                        "user_name": user.full_name or "User",
-                        "amount": self.total_price_all_slots,
-                        "transaction_id": transaction_id,
-                        "payment_date": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-                        "payment_method": "Credit Card",
-                        "booking_id": f"BK-{', '.join(map(str, created_booking_ids))}"
-                    }
-                    
-                    payment_sent = send_payment_success_email(user.email, payment_details)
-                    if payment_sent:
-                        logging.info(f"✅ Payment receipt email sent successfully to {user.email}")
-                    else:
-                        logging.warning(f"⚠️ Payment receipt email FAILED to send to {user.email}")
-                        
-                except Exception as e:
-                    logging.exception(f"❌ Failed to send confirmation/receipt emails: {e}")
+                # Generate RinggitPay Parameters
+                app_id = os.getenv("RINGGITPAY_APP_ID")
+                request_key = os.getenv("RINGGITPAY_REQUEST_KEY")
+                payment_url = os.getenv("RINGGITPAY_PAYMENT_URL")
+                base_url = os.getenv("BASE_URL")
+                
+                currency = "MYR"
+                amount = f"{self.total_price_all_slots:.2f}"
+                checksum = RinggitPayService.generate_checksum(app_id, currency, amount, order_id, request_key)
 
+                # Prepare the redirection payload
+                params = {
+                    "appId": app_id,
+                    "orderId": order_id,
+                    "currency": currency,
+                    "amount": amount,
+                    "checkSum": checksum,
+                    "buyerEmail": user.email,
+                    "accName": user.name or "Guest",
+                    "returnURL": f"{base_url}/bookings",
+                    "callbackURL": f"{base_url}/api/payment/callback"
+                }
 
-                from app.states.parking_state import ParkingState
-
-                parking_state = await self.get_state(ParkingState)
-                parking_state.update_spots(lot.id, -len(self.selected_slots))  # Decrease by number of slots
-                self.is_payment_modal_open = False
+                # Construct and execute form submission script
+                form_html = f'<form id="rpForm" action="{payment_url}" method="POST">'
+                for key, value in params.items():
+                    form_html += f'<input type="hidden" name="{key}" value="{value}">'
+                form_html += '</form>'
+                
+                script = f"""
+                    const container = document.createElement('div');
+                    container.innerHTML = '{form_html}';
+                    document.body.appendChild(container);
+                    document.getElementById('rpForm').submit();
+                """
+                
+                yield rx.call_script(script)
                 self.is_processing_payment = False
-                self.selected_lot = None
-                
-                # Clear selected slots and vehicle details
-                self.selected_slots = []
-                self.vehicle_details = {}
-                
-                yield rx.toast.success(f"Payment Successful! {len(created_booking_ids)} booking(s) confirmed.")
-                yield BookingState.load_bookings
-                yield rx.redirect("/bookings")
+                self.is_payment_modal_open = False
+                return
+
         except Exception as e:
-            logging.exception(f"Transaction failed: {e}")
+            logging.exception(f"❌ Error initiating RinggitPay payment: {e}")
+            self.payment_error = f"Payment Error: {str(e)}"
             self.is_processing_payment = False
-            yield rx.toast.error(f"Error processing booking: {str(e)}")
+            yield rx.toast.error("Internal Error: Could not initiate payment.")
 
     @rx.event
     def initiate_cancellation(self, booking: Booking):

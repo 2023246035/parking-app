@@ -113,7 +113,51 @@ async def create_booking(data: dict):
         except Exception as e:
             logging.exception(f"Error creating booking: {e}")
             session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+@router.post("/api/payment/callback", summary="RinggitPay Callback")
+async def payment_callback(data: dict):
+    """
+    Handle RinggitPay Direct Response (Server-to-Server callback).
+    Verifies checksum and updates booking status.
+    """
+    from app.services.ringgitpay_service import RinggitPayService
+    import os
+
+    logging.info(f"Received RinggitPay callback: {data}")
+    
+    response_key = os.getenv("RINGGITPAY_RESPONSE_KEY")
+    if not RinggitPayService.verify_checksum(data, response_key):
+        logging.error("Invalid checksum in RinggitPay callback")
+        raise HTTPException(status_code=400, detail="Invalid checksum")
+
+    status_code = data.get("statusCode")
+    order_id = data.get("orderId")
+    transaction_id = data.get("transactionId")
+
+    with rx.session() as session:
+        booking = session.exec(select(Booking).where(Booking.transaction_id == order_id)).first()
+        if not booking:
+            logging.error(f"Booking not found for order id: {order_id}")
+            raise HTTPException(status_code=404, detail="Booking not found")
+
+        if status_code == "00":  # Success
+            booking.status = "Confirmed"
+            booking.payment_status = "Paid"
+            booking.transaction_id = transaction_id  # Update with gateway txn id
+            logging.info(f"Payment successful for Order {order_id}")
+        else:
+            booking.status = "Failed"
+            booking.payment_status = "Failed"
+            # Revert available spots
+            lot = session.get(ParkingLot, booking.lot_id)
+            if lot:
+                lot.available_spots += 1
+                session.add(lot)
+            logging.info(f"Payment failed for Order {order_id}: {data.get('statusMsg')}")
+
+        session.add(booking)
+        session.commit()
+    
+    return {"message": "Callback processed"}
 
 
 @router.post("/api/bookings/{booking_id}/cancel", summary="Cancel a booking")

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: parkmycar-app-full
+    env: docker
+    dockerfilePath: ./Dockerfile
+    branch: feature # Update this to 'main' if deploying from the main branch
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false # Render will ask you to provide this in the dashboard
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 8000
+      - key: REFLEX_BACKEND_ONLY
+        value: "false"

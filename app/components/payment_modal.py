@@ -12,8 +12,8 @@ def payment_field(label: str, placeholder: str, icon: str, value_var: rx.Var, on
                 on_change=on_change,
                 class_name=rx.cond(
                     error_var != "",
-                    "w-full pl-10 pr-4 py-2.5 rounded-lg border border-red-300 focus:ring-2 focus:ring-red-200 focus:border-red-500 outline-none transition-all bg-red-50",
-                    "w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none transition-all"
+                    "w-full pl-10 pr-4 py-2.5 rounded-lg border border-red-300 focus:ring-2 focus:ring-red-200 focus:border-red-500 outline-none transition-all bg-red-50 text-gray-900",
+                    "w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none transition-all text-gray-900"
                 ),
             ),
             rx.icon(
@@ -38,7 +38,7 @@ def payment_modal() -> rx.Component:
                 class_name="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2",
             ),
             rx.dialog.description(
-                "Complete your booking securely with RinggitPay.",
+                "Complete your booking securely with your credit or debit card.",
                 class_name="text-sm text-gray-500 mb-6",
             ),
             rx.cond(

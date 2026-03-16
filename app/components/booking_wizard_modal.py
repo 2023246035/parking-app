@@ -64,12 +64,17 @@ def step_1_datetime() -> rx.Component:
         # Date Selection
         rx.el.div(
             rx.el.label("Parking Date", class_name="block text-sm font-semibold text-gray-700 mb-2"),
-            rx.el.input(
-                type="date",
-                min=BookingState.start_date,
-                value=BookingState.start_date,
-                on_change=BookingState.set_start_date,
-                class_name="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 transition-all",
+            rx.el.div(
+                rx.icon("calendar", class_name="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 z-10"),
+                rx.input(
+                    type="date",
+                    min=BookingState.start_date,
+                    value=BookingState.start_date,
+                    on_change=BookingState.set_start_date,
+                    on_click=rx.call_script("(e) => e.target.showPicker()"),
+                    class_name="w-full h-12 rounded-xl border-2 border-gray-200 pl-12 pr-4 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 transition-all cursor-pointer bg-white",
+                ),
+                class_name="relative"
             ),
             rx.cond(
                 BookingState.error_date != "",
@@ -81,11 +86,16 @@ def step_1_datetime() -> rx.Component:
         # Time Selection
         rx.el.div(
             rx.el.label("Start Time", class_name="block text-sm font-semibold text-gray-700 mb-2"),
-            rx.el.input(
-                type="time",
-                value=BookingState.start_time,
-                on_change=BookingState.set_start_time,
-                class_name="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 transition-all",
+            rx.el.div(
+                rx.icon("clock", class_name="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 z-10"),
+                rx.input(
+                    type="time",
+                    value=BookingState.start_time,
+                    on_change=BookingState.set_start_time,
+                    on_click=rx.call_script("(e) => e.target.showPicker()"),
+                    class_name="w-full h-12 rounded-xl border-2 border-gray-200 pl-12 pr-4 focus:ring-2 focus:ring-sky-200 focus:border-sky-500 outline-none text-gray-900 transition-all cursor-pointer bg-white",
+                ),
+                class_name="relative"
             ),
             rx.cond(
                 BookingState.error_time != "",

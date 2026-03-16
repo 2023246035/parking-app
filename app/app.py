@@ -50,11 +50,11 @@ except Exception as e:
 
 app = rx.App(
     theme=rx.theme(
-        appearance="inherit",
+        appearance="light",
         has_background=False,
     ),
     stylesheets=[
-        "/input-fix.css",  # Force white input backgrounds
+        "/input-fix.css",
     ],
     head_components=[
         rx.el.link(rel="preconnect", href="https://fonts.googleapis.com"),

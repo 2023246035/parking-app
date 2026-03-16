@@ -1,6 +1,7 @@
 import reflex as rx
 from app.components.navbar import navbar
 from app.components.footer import footer
+from app.states.auth_state import AuthState
 
 
 def feature_card(icon: str, title: str, desc: str, color: str = "indigo") -> rx.Component:
@@ -323,10 +324,18 @@ def home_page() -> rx.Component:
                             "Join thousands of happy drivers and stop worrying about parking today.",
                             class_name="text-xl text-indigo-100 mb-10 max-w-2xl mx-auto"
                         ),
-                        rx.el.a(
-                            "Get Started for Free",
-                            href="/register",
-                            class_name="inline-block px-10 py-4 rounded-full bg-white text-indigo-600 font-bold text-lg shadow-lg hover:bg-indigo-50 hover:scale-105 transition-all duration-300"
+                        rx.cond(
+                            AuthState.is_authenticated,
+                            rx.el.a(
+                                "Go to Dashboard",
+                                href="/smart-dashboard",
+                                class_name="inline-block px-10 py-4 rounded-full bg-indigo-500 text-white font-bold text-lg shadow-lg hover:bg-indigo-400 active:bg-indigo-600 active:scale-95 transition-all duration-300"
+                            ),
+                            rx.el.a(
+                                "Get Started for Free",
+                                href="/register",
+                                class_name="inline-block px-10 py-4 rounded-full bg-white text-indigo-600 font-bold text-lg shadow-lg hover:bg-gray-50 active:bg-gray-100 active:scale-95 transition-all duration-300"
+                            )
                         ),
                         class_name="relative z-10 max-w-4xl mx-auto text-center px-6"
                     ),

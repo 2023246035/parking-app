@@ -1,31 +1,92 @@
-/* Force white backgrounds on all input fields */
+/* Force white backgrounds AND dark text on all input fields */
 input[type="email"],
 input[type="password"],
 input[type="text"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
 textarea,
 select {
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #111827 !important; /* Force dark navy/black text */
+  opacity: 1 !important;
 }
 
-/* Specific override for Reflex inputs */
+/* Ensure placeholders are visible but distinct */
+::placeholder {
+  color: #6b7280 !important; /* Medium gray placeholder */
+  opacity: 1 !important;
+}
+
+/* Specific override for placeholder on various browsers */
+input::-webkit-input-placeholder {
+  color: #6b7280 !important;
+}
+input:-ms-input-placeholder {
+  color: #6b7280 !important;
+}
+input::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Force dark text for common elements that might be white/light on light backgrounds */
+.bg-white p,
+.bg-white span,
+.bg-white label,
+.bg-white h1,
+.bg-white h2,
+.bg-white h3,
+.bg-white h4,
+.bg-white h5,
+.bg-white h6,
+.bg-white td,
+.bg-white th {
+  color: #111827 !important;
+}
+
+/* Table data visibility - very aggressive to fix washed out rows */
+table td,
+table th,
+tr td,
+tr th {
+  color: #1f2937 !important; /* Tailwind gray-800 */
+}
+
+/* Specific sub-text visibility (like locations or smaller notes) */
+p.text-gray-600,
+span.text-gray-600,
+div.text-gray-600,
+p.text-gray-500,
+span.text-gray-500,
+div.text-gray-500 {
+  color: #374151 !important; /* Force to gray-700 for better contrast */
+}
+
+/* Specific override for Reflex transition classes on inputs */
 input.transition-all {
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
+  background-color: #ffffff !important;
+  color: #111827 !important;
 }
 
-/* Force white on focus too */
+/* Force white background and dark text on focus too */
 input:focus,
 textarea:focus,
 select:focus {
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  outline: none !important;
 }
 
-/* Override any Reflex theme colors */
+/* Global data-theme override to prevent system dark mode from washing out light containers */
 [data-theme] input,
 [data-theme] textarea,
 [data-theme] select {
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Custom safeguard for "RM" price tags and "BK" IDs seen in screenshots */
+.px-6.py-4 {
+  color: #111827 !important;
 }

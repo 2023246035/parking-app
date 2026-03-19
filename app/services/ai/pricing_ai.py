@@ -102,7 +102,12 @@ class DynamicPricingEngine:
         result = {
             "base_price": base_price,
             "dynamic_price": base_price,
-            "multipliers": {},
+            "multipliers": {
+                "time": 1.0,
+                "occupancy": 1.0,
+                "demand": 1.0,
+                "total": 1.0
+            },
             "factors": []
         }
 

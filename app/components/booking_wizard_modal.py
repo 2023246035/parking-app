@@ -424,8 +424,14 @@ def booking_wizard_modal() -> rx.Component:
                     # Header
                     rx.el.div(
                         rx.el.div(
-                            rx.el.h3(BookingState.selected_lot.name, class_name="text-xl font-bold text-gray-900"),
-                            rx.el.p(BookingState.selected_lot.location, class_name="text-sm text-gray-500"),
+                            rx.dialog.title(
+                                BookingState.selected_lot.name,
+                                class_name="text-xl font-bold text-gray-900"
+                            ),
+                            rx.dialog.description(
+                                BookingState.selected_lot.location,
+                                class_name="text-sm text-gray-500"
+                            ),
                         ),
                         rx.dialog.close(
                             rx.el.button(

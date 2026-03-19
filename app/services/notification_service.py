@@ -2,7 +2,7 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlmodel import Session, create_engine, select
 from datetime import datetime, timedelta
-from app.db.models import Booking, User, ParkingLot, BookingRule
+from app.db.models import Booking, User, ParkingLot, BookingRule, ParkingSlot, AuditLog
 from app.services.email_service import send_booking_reminder_email
 import os
 
@@ -225,6 +225,67 @@ def process_auto_booking_rules():
         logging.error(f"Auto-booking scheduler error: {e}")
 
 
+def reset_expired_slots():
+    """Find expired bookings and free up their slots."""
+    DATABASE_URL = get_database_url()
+    logging.info("🧹 Slot reset task running...")
+    
+    try:
+        engine = create_engine(DATABASE_URL)
+        with Session(engine) as session:
+            now = datetime.now()
+            
+            # Find Confirmed bookings that have ended
+            # Since start_date and start_time are strings, we need to parse them
+            # This is slightly inefficient but necessary given the schema
+            bookings = session.exec(select(Booking).where(Booking.status == "Confirmed")).all()
+            
+            reset_count = 0
+            for booking in bookings:
+                try:
+                    start_dt = datetime.strptime(f"{booking.start_date} {booking.start_time}", "%Y-%m-%d %H:%M")
+                    end_dt = start_dt + timedelta(hours=booking.duration_hours)
+                    
+                    if end_dt <= now:
+                        logging.info(f"Completing expired booking {booking.id} (ended at {end_dt})")
+                        booking.status = "Completed"
+                        session.add(booking)
+                        
+                        # Free the slot if it's linked
+                        if booking.slot_db_id:
+                            slot = session.get(ParkingSlot, booking.slot_db_id)
+                            if slot:
+                                slot.is_occupied = False
+                                session.add(slot)
+                                
+                        # Increment available spots in the lot
+                        lot = session.get(ParkingLot, booking.lot_id)
+                        if lot:
+                            lot.available_spots = min(lot.total_spots, lot.available_spots + 1)
+                            session.add(lot)
+                            
+                        # Log the audit
+                        audit = AuditLog(
+                            action="Slot Auto-Reset",
+                            details=f"Booking {booking.id} completed. Slot {booking.slot_id} freed.",
+                            user_id=booking.user_id
+                        )
+                        session.add(audit)
+                        reset_count += 1
+                except Exception as e:
+                    logging.error(f"Error resetting booking {booking.id}: {e}")
+                    continue
+            
+            if reset_count > 0:
+                session.commit()
+                logging.info(f"✅ Auto-reset {reset_count} expired slots.")
+            else:
+                logging.info("🧹 No expired slots found.")
+                
+    except Exception as e:
+        logging.error(f"Slot reset task error: {e}")
+
+
 def start_scheduler():
     """Start the background scheduler."""
     if not scheduler.running:
@@ -234,6 +295,9 @@ def start_scheduler():
         # Auto-booking processing every 10 minutes (more responsive than hourly)
         # This will check for rules and create bookings throughout the day
         scheduler.add_job(process_auto_booking_rules, 'interval', minutes=10)
+        
+        # Slot reset every minute for real-time responsiveness
+        scheduler.add_job(reset_expired_slots, 'interval', minutes=1)
         
         try:
             scheduler.start()

@@ -26,126 +26,134 @@ def register_page() -> rx.Component:
                         "Join thousands of happy drivers",
                         class_name="text-gray-500 text-center mb-8",
                     ),
-                    rx.el.div(
-                        rx.el.label(
-                            "Full Name",
-                            class_name="block text-sm font-medium text-gray-700 mb-1.5",
-                        ),
+                    rx.form(
                         rx.el.div(
-                            rx.icon(
-                                "user",
-                                class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
+                            rx.el.label(
+                                "Full Name",
+                                class_name="block text-sm font-medium text-gray-700 mb-1.5",
                             ),
-                            rx.el.input(
-                                placeholder="John Doe",
-                                on_change=AuthState.set_full_name,
-                                class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
-                            ),
-                            class_name="relative",
-                        ),
-                        class_name="mb-4",
-                    ),
-                    rx.el.div(
-                        rx.el.label(
-                            "Email Address",
-                            class_name="block text-sm font-medium text-gray-700 mb-1.5",
-                        ),
-                        rx.el.div(
-                            rx.icon(
-                                "mail",
-                                class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
-                            ),
-                            rx.el.input(
-                                placeholder="you@example.com",
-                                type="email",
-                                on_change=AuthState.set_email,
-                                class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
-                            ),
-                            class_name="relative",
-                        ),
-                        class_name="mb-4",
-                    ),
-                    rx.el.div(
-                        rx.el.label(
-                            "Phone Number",
-                            class_name="block text-sm font-medium text-gray-700 mb-1.5",
-                        ),
-                        rx.el.div(
-                            rx.icon(
-                                "phone",
-                                class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
-                            ),
-                            rx.el.input(
-                                placeholder="+60 12-345 6789",
-                                type="tel",
-                                on_change=AuthState.set_phone,
-                                class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
-                            ),
-                            class_name="relative",
-                        ),
-                        class_name="mb-4",
-                    ),
-                    rx.el.div(
-                        rx.el.label(
-                            "Password",
-                            class_name="block text-sm font-medium text-gray-700 mb-1.5",
-                        ),
-                        rx.el.div(
-                            rx.icon(
-                                "lock",
-                                class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
-                            ),
-                            rx.el.input(
-                                placeholder="••••••••",
-                                type="password",
-                                on_change=AuthState.set_password,
-                                class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
-                            ),
-                            class_name="relative",
-                        ),
-                        class_name="mb-4",
-                    ),
-                    rx.el.div(
-                        rx.el.label(
-                            "Confirm Password",
-                            class_name="block text-sm font-medium text-gray-700 mb-1.5",
-                        ),
-                        rx.el.div(
-                            rx.icon(
-                                "lock-keyhole",
-                                class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
-                            ),
-                            rx.el.input(
-                                placeholder="••••••••",
-                                type="password",
-                                on_change=AuthState.set_confirm_password,
-                                class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
-                            ),
-                            class_name="relative",
-                        ),
-                        class_name="mb-6",
-                    ),
-                    rx.cond(
-                        AuthState.error_message != "",
-                        rx.el.div(
-                            rx.icon("circle-alert", class_name="h-4 w-4 mr-2"),
-                            rx.el.p(AuthState.error_message),
-                            class_name="flex items-center p-3 mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg",
-                        ),
-                    ),
-                    rx.el.button(
-                        rx.cond(
-                            AuthState.is_loading,
                             rx.el.div(
-                                rx.spinner(size="2", class_name="mr-2 text-white"),
-                                "Creating account...",
-                                class_name="flex items-center justify-center",
+                                rx.icon(
+                                    "user",
+                                    class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
+                                ),
+                                rx.el.input(
+                                    placeholder="John Doe",
+                                    name="full_name",
+                                    on_change=AuthState.set_full_name,
+                                    class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
+                                ),
+                                class_name="relative",
                             ),
-                            "Create Account",
+                            class_name="mb-4",
                         ),
-                        disabled=AuthState.is_loading,
-                        on_click=AuthState.register,
-                        class_name="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-semibold shadow-lg shadow-sky-500/30 hover:shadow-sky-500/50 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed",
+                        rx.el.div(
+                            rx.el.label(
+                                "Email Address",
+                                class_name="block text-sm font-medium text-gray-700 mb-1.5",
+                            ),
+                            rx.el.div(
+                                rx.icon(
+                                    "mail",
+                                    class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
+                                ),
+                                rx.el.input(
+                                    placeholder="you@example.com",
+                                    type="email",
+                                    name="email",
+                                    on_change=AuthState.set_email,
+                                    class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
+                                ),
+                                class_name="relative",
+                            ),
+                            class_name="mb-4",
+                        ),
+                        rx.el.div(
+                            rx.el.label(
+                                "Phone Number",
+                                class_name="block text-sm font-medium text-gray-700 mb-1.5",
+                            ),
+                            rx.el.div(
+                                rx.icon(
+                                    "phone",
+                                    class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
+                                ),
+                                rx.el.input(
+                                    placeholder="+60 12-345 6789",
+                                    type="tel",
+                                    name="phone",
+                                    on_change=AuthState.set_phone,
+                                    class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
+                                ),
+                                class_name="relative",
+                            ),
+                            class_name="mb-4",
+                        ),
+                        rx.el.div(
+                            rx.el.label(
+                                "Password",
+                                class_name="block text-sm font-medium text-gray-700 mb-1.5",
+                            ),
+                            rx.el.div(
+                                rx.icon(
+                                    "lock",
+                                    class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
+                                ),
+                                rx.el.input(
+                                    placeholder="••••••••",
+                                    type="password",
+                                    name="password",
+                                    on_change=AuthState.set_password,
+                                    class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
+                                ),
+                                class_name="relative",
+                            ),
+                            class_name="mb-4",
+                        ),
+                        rx.el.div(
+                            rx.el.label(
+                                "Confirm Password",
+                                class_name="block text-sm font-medium text-gray-700 mb-1.5",
+                            ),
+                            rx.el.div(
+                                rx.icon(
+                                    "lock-keyhole",
+                                    class_name="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400",
+                                ),
+                                rx.el.input(
+                                    placeholder="••••••••",
+                                    type="password",
+                                    name="confirm_password",
+                                    on_change=AuthState.set_confirm_password,
+                                    class_name="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition-all bg-gray-50/50 focus:bg-white",
+                                ),
+                                class_name="relative",
+                            ),
+                            class_name="mb-6",
+                        ),
+                        rx.cond(
+                            AuthState.error_message != "",
+                            rx.el.div(
+                                rx.icon("circle-alert", class_name="h-4 w-4 mr-2"),
+                                rx.el.p(AuthState.error_message),
+                                class_name="flex items-center p-3 mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg",
+                            ),
+                        ),
+                        rx.el.button(
+                            rx.cond(
+                                AuthState.is_loading,
+                                rx.el.div(
+                                    rx.spinner(size="2", class_name="mr-2 text-white"),
+                                    "Creating account...",
+                                    class_name="flex items-center justify-center",
+                                ),
+                                "Create Account",
+                            ),
+                            type="submit",
+                            disabled=AuthState.is_loading,
+                            class_name="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-semibold shadow-lg shadow-sky-500/30 hover:shadow-sky-500/50 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed",
+                        ),
+                        on_submit=AuthState.register,
                     ),
                     rx.el.p(
                         "By creating an account, you agree to our ",

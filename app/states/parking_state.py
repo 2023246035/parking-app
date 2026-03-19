@@ -1,6 +1,7 @@
 import reflex as rx
 import asyncio
 import logging
+from datetime import datetime
 from sqlmodel import select
 from app.states.schema import ParkingLot
 from app.db.models import ParkingLot as DBParkingLot
@@ -36,8 +37,11 @@ class ParkingState(rx.State):
         """Fetch parking lots from the database and apply AI features."""
         logging.info("ParkingState: Starting load_data...")
         try:
-            # 1. Update Dynamic Prices
-            await DynamicPricingEngine.update_all_parking_prices()
+            # 1. Update Dynamic Prices - Non-critical
+            try:
+                await DynamicPricingEngine.update_all_parking_prices()
+            except Exception as e:
+                logging.warning(f"Dynamic pricing update failed: {e}")
             
             with rx.session() as session:
                 # Fetch lots
@@ -51,8 +55,11 @@ class ParkingState(rx.State):
                     user = session.exec(select(DBUser).where(DBUser.email == self.session_email)).first()
                     if user:
                         user_id = user.id
-                        # Analyze preferences
-                        await RecommendationEngine.analyze_user_preferences(user_id)
+                        # Analyze preferences - Non-critical
+                        try:
+                            await RecommendationEngine.analyze_user_preferences(user_id)
+                        except Exception as e:
+                            logging.warning(f"User preference analysis failed: {e}")
 
                 # Process lots with AI
                 processed_lots = []
@@ -80,9 +87,14 @@ class ParkingState(rx.State):
                     )
                     processed_lots.append(lot_obj)
 
-                # Get Recommendations if user is logged in
+                # Get Recommendations if user is logged in - Non-critical
+                recommendations = []
                 if user_id:
-                    recommendations = await RecommendationEngine.get_recommendations(user_id)
+                    try:
+                        recommendations = await RecommendationEngine.get_recommendations(user_id)
+                    except Exception as e:
+                        logging.warning(f"Recommendation fetch failed: {e}")
+                    
                     rec_map = {r['lot']['id']: r for r in recommendations}
                     
                     # Update lots with recommendation data

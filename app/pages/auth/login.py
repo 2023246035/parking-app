@@ -76,69 +76,74 @@ def login_page() -> rx.Component:
                             "Please enter your details to sign in.",
                             class_name="text-gray-500 mb-8",
                         ),
-                        rx.el.div(
-                            rx.el.label(
-                                "Email Address",
-                                class_name="block text-sm font-semibold text-gray-700 mb-2",
-                            ),
-                            rx.el.input(
-                                placeholder="you@example.com",
-                                type="email",
-                                on_change=AuthState.set_email,
-                                style={"background-color": "#FFFFFF !important"},
-                                class_name="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all text-gray-900",
-                            ),
-                            class_name="mb-5",
-                        ),
-                        rx.el.div(
+                        rx.form(
                             rx.el.div(
                                 rx.el.label(
-                                    "Password",
-                                    class_name="block text-sm font-semibold text-gray-700",
+                                    "Email Address",
+                                    class_name="block text-sm font-semibold text-gray-700 mb-2",
                                 ),
-                                rx.el.a(
-                                    "Forgot Password?",
-                                    href="/forgot-password",
-                                    class_name="text-sm font-medium text-sky-600 hover:text-sky-700 transition-colors",
+                                rx.el.input(
+                                    placeholder="you@example.com",
+                                    type="email",
+                                    name="email",
+                                    on_change=AuthState.set_email,
+                                    style={"background-color": "#FFFFFF !important"},
+                                    class_name="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all text-gray-900",
                                 ),
-                                class_name="flex justify-between items-center mb-2",
+                                class_name="mb-5",
                             ),
-                            rx.el.input(
-                                placeholder="••••••••",
-                                type="password",
-                                on_change=AuthState.set_password,
-                                style={"background-color": "#FFFFFF !important"},
-                                class_name="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all text-gray-900",
-                            ),
-                            class_name="mb-6",
-                        ),
-                        rx.cond(
-                            AuthState.error_message != "",
                             rx.el.div(
-                                rx.icon(
-                                    "circle-alert",
-                                    class_name="h-5 w-5 text-red-500 mr-2 flex-shrink-0",
-                                ),
-                                rx.el.p(
-                                    AuthState.error_message,
-                                    class_name="text-sm text-red-600 font-medium",
-                                ),
-                                class_name="flex items-center p-4 mb-6 bg-red-50 border border-red-100 rounded-xl animate-fadeIn",
-                            ),
-                        ),
-                        rx.el.button(
-                            rx.cond(
-                                AuthState.is_loading,
                                 rx.el.div(
-                                    rx.spinner(size="2", class_name="mr-2 text-white"),
-                                    "Signing in...",
-                                    class_name="flex items-center justify-center",
+                                    rx.el.label(
+                                        "Password",
+                                        class_name="block text-sm font-semibold text-gray-700",
+                                    ),
+                                    rx.el.a(
+                                        "Forgot Password?",
+                                        href="/forgot-password",
+                                        class_name="text-sm font-medium text-sky-600 hover:text-sky-700 transition-colors",
+                                    ),
+                                    class_name="flex justify-between items-center mb-2",
                                 ),
-                                "Sign In",
+                                rx.el.input(
+                                    placeholder="••••••••",
+                                    type="password",
+                                    name="password",
+                                    on_change=AuthState.set_password,
+                                    style={"background-color": "#FFFFFF !important"},
+                                    class_name="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all text-gray-900",
+                                ),
+                                class_name="mb-6",
                             ),
-                            disabled=AuthState.is_loading,
-                            on_click=AuthState.login,
-                            class_name="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold text-lg shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none mb-8",
+                            rx.cond(
+                                AuthState.error_message != "",
+                                rx.el.div(
+                                    rx.icon(
+                                        "circle-alert",
+                                        class_name="h-5 w-5 text-red-500 mr-2 flex-shrink-0",
+                                    ),
+                                    rx.el.p(
+                                        AuthState.error_message,
+                                        class_name="text-sm text-red-600 font-medium",
+                                    ),
+                                    class_name="flex items-center p-4 mb-6 bg-red-50 border border-red-100 rounded-xl animate-fadeIn",
+                                ),
+                            ),
+                            rx.el.button(
+                                rx.cond(
+                                    AuthState.is_loading,
+                                    rx.el.div(
+                                        rx.spinner(size="2", class_name="mr-2 text-white"),
+                                        "Signing in...",
+                                        class_name="flex items-center justify-center",
+                                    ),
+                                    "Sign In",
+                                ),
+                                type="submit",
+                                disabled=AuthState.is_loading,
+                                class_name="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold text-lg shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none mb-8",
+                            ),
+                            on_submit=AuthState.login,
                         ),
                         rx.el.p(
                             "Don't have an account? ",

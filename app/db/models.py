@@ -43,6 +43,7 @@ class ParkingLot(SQLModel, table=True):
     features: str
     rating: float
     bookings: list["Booking"] = Relationship(back_populates="parking_lot")
+    slots: list["ParkingSlot"] = Relationship(back_populates="parking_lot")
 
     def to_dict(self):
         return {
@@ -72,6 +73,30 @@ class CancellationPolicy(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class ParkingSlot(SQLModel, table=True):
+    """Specific parking slot in a lot (e.g., A1, B2)."""
+    __tablename__ = "parkingslot"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    slot_number: str = Field(index=True)
+    is_occupied: bool = Field(default=False)
+    last_occupied_at: Optional[datetime] = None
+    
+    lot_id: int = Field(foreign_key="parkinglot.id")
+    parking_lot: Optional[ParkingLot] = Relationship(back_populates="slots")
+    
+    # Relationship to the current/last booking for this slot
+    bookings: list["Booking"] = Relationship(back_populates="parking_slot")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "slot_number": self.slot_number,
+            "is_occupied": self.is_occupied,
+            "lot_id": self.lot_id,
+        }
+
+
 class Booking(SQLModel, table=True):
     """Booking model tracking reservations."""
 
@@ -90,13 +115,15 @@ class Booking(SQLModel, table=True):
     cancellation_reason: Optional[str] = None
     cancellation_at: Optional[datetime] = None
     is_refundable: bool = Field(default=True)  # BRD: Support non-refundable bookings
-    slot_id: Optional[str] = Field(default=None)
+    slot_id: Optional[str] = Field(default=None) # Keep for backward compatibility/display
+    slot_db_id: Optional[int] = Field(default=None, foreign_key="parkingslot.id")
     vehicle_number: Optional[str] = Field(default=None)
     phone_number: Optional[str] = Field(default=None)
     user_id: int = Field(foreign_key="user.id")
     user: Optional[User] = Relationship(back_populates="bookings")
     lot_id: int = Field(foreign_key="parkinglot.id")
     parking_lot: Optional[ParkingLot] = Relationship(back_populates="bookings")
+    parking_slot: Optional[ParkingSlot] = Relationship(back_populates="bookings")
     payment: Optional["Payment"] = Relationship(back_populates="booking")
     reminder_sent: bool = Field(default=False)
 

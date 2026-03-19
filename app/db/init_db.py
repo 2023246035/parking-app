@@ -1,6 +1,8 @@
 import reflex as rx
-from sqlmodel import select, SQLModel
-from app.db.models import ParkingLot, User, Booking, Payment, AuditLog, CancellationPolicy, BookingRule
+from sqlmodel import select, SQLModel, text
+from sqlalchemy import inspect
+from app.db.models import ParkingLot, User, Booking, Payment, AuditLog, CancellationPolicy, BookingRule, ParkingSlot
+from app.db.ai_models import UserPreference, PricingHistory, AutoBookingSetting, ChatbotConversation, RecommendationScore
 import logging
 
 
@@ -10,7 +12,34 @@ def init_db():
     with rx.session() as session:
         try:
             engine = session.get_bind()
-            SQLModel.metadata.create_all(engine)
+            
+            # --- BEGIN SAFE MIGRATION ---
+            # SQLModel.metadata.create_all only creates MISSING tables.
+            # It DOES NOT add missing columns to existing tables.
+            try:
+                # 1. Ensure all tables exist (especially new ones like parkingslot)
+                SQLModel.metadata.create_all(engine)
+                logging.info("Core tables verified.")
+
+                # 2. Check for missing columns in 'booking' table (Database Agnostic)
+                inspector = inspect(engine)
+                columns = [c['name'] for c in inspector.get_columns('booking')]
+                
+                if 'slot_db_id' not in columns:
+                    logging.info("Adding missing column 'slot_db_id' to 'booking' table...")
+                    with engine.connect() as conn:
+                        # SQLite doesn't support complex ALTER TABLE but ADD COLUMN is fine
+                        # PostgreSQL dialect detection if needed, but simple ALTER works for both
+                        conn.execute(text("ALTER TABLE booking ADD COLUMN slot_db_id INTEGER REFERENCES parkingslot(id)"))
+                        conn.commit()
+                    logging.info("Added 'slot_db_id' to 'booking' table successfully.")
+                else:
+                    logging.info("'slot_db_id' column already exists in 'booking' table.")
+                    
+            except Exception as migrate_err:
+                logging.warning(f"Migration warning: {migrate_err}")
+            # --- END SAFE MIGRATION ---
+
             logging.info("Database tables verified/created.")
             
             # Initialize default cancellation policy
@@ -95,6 +124,21 @@ def init_db():
                     ),
                 ]
                 session.add_all(lots)
+                session.commit() # Commit lots first so we can link slots
+                
+                # Seed slots for each lot
+                all_lots = session.exec(select(ParkingLot)).all()
+                for lot in all_lots:
+                    logging.info(f"Seeding slots for {lot.name}...")
+                    slots = []
+                    # Zone A: A1-A10
+                    for i in range(1, 11):
+                        slots.append(ParkingSlot(slot_number=f"A{i}", lot_id=lot.id))
+                    # Zone B: B1-B10
+                    for i in range(1, 11):
+                        slots.append(ParkingSlot(slot_number=f"B{i}", lot_id=lot.id))
+                    session.add_all(slots)
+                
                 existing_user = session.exec(
                     select(User).where(User.email == "alex.tan@example.com")
                 ).first()
@@ -108,8 +152,22 @@ def init_db():
                     )
                     session.add(demo_user)
                 session.commit()
-                logging.info("Database seeded successfully.")
+                logging.info("Database seeded successfully with Slots, Lots, and Users.")
             else:
+                # If lots exist, check if slots need seeding
+                existing_slots = session.exec(select(ParkingSlot)).first()
+                if not existing_slots:
+                    logging.info("Parking lots exist but no slots found. Seeding slots...")
+                    all_lots = session.exec(select(ParkingLot)).all()
+                    for lot in all_lots:
+                        slots = []
+                        for i in range(1, 11):
+                            slots.append(ParkingSlot(slot_number=f"A{i}", lot_id=lot.id))
+                        for i in range(1, 11):
+                            slots.append(ParkingSlot(slot_number=f"B{i}", lot_id=lot.id))
+                        session.add_all(slots)
+                    session.commit()
+                    logging.info("Slots seeded for existing lots.")
                 logging.info("Database already seeded.")
         except Exception as e:
             logging.exception(f"Error initializing database: {e}")

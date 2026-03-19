@@ -7,16 +7,13 @@ def cancellation_modal() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             # Header
-            rx.el.div(
-                rx.el.h2(
-                    "Cancel Booking?",
-                    class_name="text-xl font-bold text-gray-900"
-                ),
-                rx.el.p(
-                    "This action cannot be undone",
-                    class_name="text-sm text-gray-500 mt-1"
-                ),
-                class_name="mb-6"
+            rx.dialog.title(
+                "Cancel Booking?",
+                class_name="text-xl font-bold text-gray-900 mb-1"
+            ),
+            rx.dialog.description(
+                "This action cannot be undone. Please confirm if you wish to proceed.",
+                class_name="text-sm text-gray-500 mb-6"
             ),
             
             rx.cond(

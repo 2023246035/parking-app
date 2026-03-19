@@ -297,7 +297,11 @@ def slot_booking_modal() -> rx.Component:
         rx.dialog.content(
             rx.dialog.title(
                 "Book Parking Spot",
-                class_name="text-2xl font-bold text-gray-900 mb-6"
+                class_name="text-2xl font-bold text-gray-900 mb-2"
+            ),
+            rx.dialog.description(
+                "Complete the steps to book your preferred parking space.",
+                class_name="text-sm text-gray-500 mb-6"
             ),
             
             rx.cond(

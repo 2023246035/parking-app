@@ -16,6 +16,7 @@ from app.db.models import (
     Payment as DBPayment,
     AuditLog as DBAuditLog,
     User as DBUser,
+    ParkingSlot as DBParkingSlot,
 )
 from app.states.user_state import UserState
 
@@ -56,6 +57,7 @@ class BookingState(rx.State):
     is_generating_qr: bool = False  # Loading state for QR generation
     expanded_refund_details: dict[str, bool] = {}  # Track which booking's refund details are expanded
     expanded_qr_codes: dict[str, bool] = {}  # Track which QR codes are expanded
+    is_refreshing: bool = False
     
     @rx.var
     def reschedulable_booking_ids(self) -> list[str]:
@@ -534,6 +536,7 @@ class BookingState(rx.State):
         self.occupied_slots = []
         self.booking_step = 1
         self.selected_slots = []
+        return BookingState.start_realtime_sync
 
     @rx.event
     def close_modal(self):
@@ -541,12 +544,16 @@ class BookingState(rx.State):
         self.selected_lot = None
         self.booking_step = 1
         self.selected_slots = []
+        return BookingState.stop_realtime_sync
 
     @rx.event
     def handle_modal_open_change(self, open: bool):
         self.is_modal_open = open
         if not open:
             self.selected_lot = None
+            return BookingState.stop_realtime_sync
+        else:
+            return BookingState.start_realtime_sync
 
     @rx.event
     def set_start_date(self, date: str):
@@ -629,18 +636,68 @@ class BookingState(rx.State):
                             # Assuming transaction_id might contain slot info like "TXN_123_A5"
                             # For now, we'll use a simple random assignment for demo
                             # In production, you'd store the slot_id in the booking table
+                            # In the new system, we query the ParkingSlot table or the linked slot_db_id
                             slot_id = getattr(booking, 'slot_id', None)
                             if slot_id:
                                 self.occupied_slots.append(slot_id)
                     except Exception as e:
                         logging.warning(f"Error parsing booking datetime: {e}")
                         continue
+                
+                # Also include slots currently marked as occupied in the database
+                # (This handles the real-time status from the reset task)
+                active_slots = session.exec(
+                    select(DBParkingSlot).where(
+                        DBParkingSlot.lot_id == int(self.selected_lot.id),
+                        DBParkingSlot.is_occupied == True
+                    )
+                ).all()
+                for slot in active_slots:
+                    if slot.slot_number not in self.occupied_slots:
+                        self.occupied_slots.append(slot.slot_number)
                         
         except Exception as e:
             logging.exception(f"Error loading occupied slots: {e}")
             logging.error("Failed to load slot availability")
         finally:
             self.is_loading_slots = False
+    
+    @rx.event
+    async def start_realtime_sync(self):
+        """Start periodic background task to sync slot availability"""
+        if self.is_refreshing:
+            return
+        
+        self.is_refreshing = True
+        logging.info("🔄 Starting real-time sync for booking modal")
+        
+        # Keep syncing while the modal is open or is_refreshing is True
+        while self.is_refreshing and (self.is_modal_open or self.is_payment_modal_open):
+            try:
+                # 1. Update occupied slots based on specific slot logic
+                if self.selected_lot:
+                    await self.load_occupied_slots()
+                
+                # 2. Update parking lots availability stats
+                from app.states.parking_state import ParkingState
+                parking_state = await self.get_state(ParkingState)
+                await parking_state.load_data()
+                
+                # Yield to update UI
+                yield
+            except Exception as e:
+                logging.error(f"Error in real-time sync loop: {e}")
+            
+            # Wait 5 seconds before next sync
+            await asyncio.sleep(5)
+        
+        logging.info("🛑 Real-time sync stopped")
+        self.is_refreshing = False
+
+    @rx.event
+    def stop_realtime_sync(self):
+        """Stop the background sync task"""
+        self.is_refreshing = False
 
     @rx.event
     async def proceed_to_slot_selection(self):
@@ -997,6 +1054,19 @@ class BookingState(rx.State):
                     vehicle_info = self.vehicle_details.get(slot_id, {})
                     vehicle_number = vehicle_info.get("vehicle_number", "UNKNOWN")
                     
+                    # Find the slot in DB to link it and mark as occupied
+                    db_slot = session.exec(
+                        select(DBParkingSlot).where(
+                            DBParkingSlot.lot_id == lot.id,
+                            DBParkingSlot.slot_number == slot_id
+                        )
+                    ).first()
+                    
+                    if db_slot:
+                        db_slot.is_occupied = True
+                        db_slot.last_occupied_at = timestamp
+                        session.add(db_slot)
+
                     new_booking = DBBooking(
                         user_id=user.id,
                         lot_id=lot.id,
@@ -1008,6 +1078,7 @@ class BookingState(rx.State):
                         payment_status="Paid",
                         transaction_id=transaction_id,  # Same transaction for all
                         slot_id=slot_id,
+                        slot_db_id=db_slot.id if db_slot else None,
                         vehicle_number=vehicle_number,
                         phone_number=self.phone_number,
                         created_at=timestamp,
@@ -1189,8 +1260,15 @@ class BookingState(rx.State):
                 # Free up the parking spot
                 lot = session.get(DBParkingLot, booking.lot_id)
                 if lot:
-                    lot.available_spots += 1
+                    lot.available_spots = min(lot.total_spots, lot.available_spots + 1)
                     session.add(lot)
+                
+                # Free the specific slot in DB
+                if booking.slot_db_id:
+                    db_slot = session.get(DBParkingSlot, booking.slot_db_id)
+                    if db_slot:
+                        db_slot.is_occupied = False
+                        session.add(db_slot)
                 
                 # Audit log
                 audit = DBAuditLog(

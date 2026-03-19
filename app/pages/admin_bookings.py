@@ -32,6 +32,7 @@ class AdminBookingsState(rx.State):
                         "total_price": f"RM {booking.total_price:.2f}",
                         "status": booking.status,
                         "payment_status": booking.payment_status,
+                        "slot_id": booking.slot_id or "N/A",
                     }
                     for booking in db_bookings
                 ]
@@ -75,6 +76,7 @@ def booking_row(booking: dict) -> rx.Component:
             class_name="px-6 py-4"
         ),
         rx.el.td(booking["duration"], class_name="px-6 py-4"),
+        rx.el.td(booking["slot_id"], class_name="px-6 py-4 font-mono font-bold text-indigo-600"),
         rx.el.td(booking["total_price"], class_name="px-6 py-4 font-semibold"),
         rx.el.td(status_badge(booking["status"]), class_name="px-6 py-4"),
         class_name="border-b border-gray-100 hover:bg-gray-50"
@@ -132,6 +134,7 @@ def admin_bookings_page() -> rx.Component:
                                         rx.el.th("Parking Lot", class_name="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"),
                                         rx.el.th("Start", class_name="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"),
                                         rx.el.th("Duration", class_name="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"),
+                                        rx.el.th("Slot", class_name="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"),
                                         rx.el.th("Price", class_name="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"),
                                         rx.el.th("Status", class_name="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"),
                                         class_name="bg-gray-50"

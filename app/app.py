@@ -1,5 +1,11 @@
 import reflex as rx
 import logging
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 from app.pages.home import home_page
 from app.pages.listings import listings_page
 from app.pages.bookings import bookings_page

@@ -50,7 +50,7 @@ class SmartDashboardState(rx.State):
     form_vehicle: str = ""
     form_phone: str = ""
     form_slot: str = ""
-    available_slots: List[str] = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "B4", "B5"] # Simplified slots
+    available_slots: List[str] = [f"{prefix}{i}" for prefix in ["A", "B"] for i in range(1, 11)]
     
     # Validation error messages
     error_location: str = ""
@@ -237,7 +237,7 @@ class SmartDashboardState(rx.State):
                             occupied_slots = session.exec(occupied_query).all()
                             
                             # Standard slots (matching UI)
-                            standard_slots = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "B4", "B5"]
+                            standard_slots = [f"{prefix}{i}" for prefix in ["A", "B"] for i in range(1, 11)]
                             
                             alternative_found = False
                             for s in standard_slots:

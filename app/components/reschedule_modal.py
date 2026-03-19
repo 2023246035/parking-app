@@ -7,16 +7,13 @@ def reschedule_modal() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             # Header
-            rx.el.div(
-                rx.el.h2(
-                    "Change Booking Time",
-                    class_name="text-xl font-bold text-gray-900"
-                ),
-                rx.el.p(
-                    "Select new date and time for your booking",
-                    class_name="text-sm text-gray-500 mt-1"
-                ),
-                class_name="mb-6"
+            rx.dialog.title(
+                "Change Booking Time",
+                class_name="text-xl font-bold text-gray-900 mb-1"
+            ),
+            rx.dialog.description(
+                "Select new date and time for your booking",
+                class_name="text-sm text-gray-500 mb-6"
             ),
             
             rx.cond(

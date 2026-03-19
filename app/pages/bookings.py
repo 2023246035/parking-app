@@ -1052,6 +1052,7 @@ def bookings_page() -> rx.Component:
         class_name="font-['Roboto'] min-h-screen flex flex-col",
         on_mount=[
             AuthState.check_login,
+            BookingState.load_bookings,
             BookingState.generate_qr_codes,  # Generate QR codes on page load
             rx.call_script(TICKET_JS),  # Inject JavaScript on page load
         ],

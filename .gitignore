@@ -1,3 +1,6 @@
+assets/external/
+.states
+.web
 # Environment files
 .env
 .env.*

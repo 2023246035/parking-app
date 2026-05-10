@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    container_name: parkmycar-ai-service
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - APP_ENV=development
+      # Note: AI service is decoupled from postgres, so we omit postgres credentials
+    env_file:
+      - .env
+    restart: unless-stopped

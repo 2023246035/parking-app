@@ -11,9 +11,7 @@ from sqlmodel import select
 from app.db.models import (
     User, ParkingLot, Booking
 )
-from app.db.ai_models import (
-    UserPreference, RecommendationScore
-)
+
 
 
 class RecommendationEngine:
@@ -99,48 +97,11 @@ class RecommendationEngine:
 
         return preferences
 
-    @staticmethod
-    async def save_user_preferences(user_id: int):
-        """Analyze and save user preferences to database"""
-        try:
-            preferences = await RecommendationEngine.analyze_user_preferences(user_id)
 
-            with rx.session() as session:
-                # Check if preferences exist
-                existing = session.exec(
-                    select(UserPreference).where(UserPreference.user_id == user_id)
-                ).first()
-
-                if existing:
-                    # Update existing
-                    existing.preferred_locations = json.dumps(preferences["preferred_locations"])
-                    existing.preferred_price_min = preferences["preferred_price_range"]["min"]
-                    existing.preferred_price_max = preferences["preferred_price_range"]["max"]
-                    existing.preferred_amenities = json.dumps(preferences["preferred_amenities"])
-                    existing.booking_frequency = preferences["booking_frequency"]
-                    existing.average_duration = preferences["average_duration"]
-                    existing.updated_at = datetime.utcnow()
-                else:
-                    # Create new
-                    new_pref = UserPreference(
-                        user_id=user_id,
-                        preferred_locations=json.dumps(preferences["preferred_locations"]),
-                        preferred_price_min=preferences["preferred_price_range"]["min"],
-                        preferred_price_max=preferences["preferred_price_range"]["max"],
-                        preferred_amenities=json.dumps(preferences["preferred_amenities"]),
-                        booking_frequency=preferences["booking_frequency"],
-                        average_duration=preferences["average_duration"]
-                    )
-                    session.add(new_pref)
-
-                session.commit()
-
-        except Exception as e:
-            print(f"Error saving user preferences: {e}")
 
     @staticmethod
     def calculate_recommendation_score(
-        user_prefs: UserPreference,
+        user_prefs: Dict,
         parking_lot: ParkingLot
     ) -> tuple[float, List[str]]:
         """
@@ -153,26 +114,30 @@ class RecommendationEngine:
 
         try:
             # Location match (weight: 2.0)
-            if user_prefs.preferred_locations:
-                preferred_locs = json.loads(user_prefs.preferred_locations)
+            if user_prefs.get("preferred_locations"):
+                preferred_locs = user_prefs["preferred_locations"]
                 if parking_lot.location in preferred_locs:
                     score += 2.0
                     factors.append(f"Preferred location: {parking_lot.location}")
 
             # Price range match (weight: 1.5)
-            if user_prefs.preferred_price_min and user_prefs.preferred_price_max:
-                if user_prefs.preferred_price_min <= parking_lot.price_per_hour <= user_prefs.preferred_price_max:
+            price_range = user_prefs.get("preferred_price_range", {})
+            min_price = price_range.get("min")
+            max_price = price_range.get("max")
+            
+            if min_price is not None and max_price is not None:
+                if min_price <= parking_lot.price_per_hour <= max_price:
                     score += 1.5
                     factors.append("Within your price range")
-                elif parking_lot.price_per_hour < user_prefs.preferred_price_min:
+                elif parking_lot.price_per_hour < min_price:
                     score += 1.0
                     factors.append("Great price!")
                 else:
                     score -= 0.5
 
             # Amenities match (weight: 1.5)
-            if user_prefs.preferred_amenities:
-                preferred_amenities = json.loads(user_prefs.preferred_amenities)
+            if user_prefs.get("preferred_amenities"):
+                preferred_amenities = user_prefs["preferred_amenities"]
                 lot_amenities = [a.strip() for a in parking_lot.features.split(",")]
                 matching_amenities = set(preferred_amenities) & set(lot_amenities)
                 
@@ -216,20 +181,11 @@ class RecommendationEngine:
 
         try:
             with rx.session() as session:
-                # Get or create user preferences
-                user_prefs = session.exec(
-                    select(UserPreference).where(UserPreference.user_id == user_id)
-                ).first()
+                # Dynamically calculate user preferences without hitting a dedicated AI DB tracking table
+                user_prefs = await RecommendationEngine.analyze_user_preferences(user_id)
 
-                if not user_prefs:
-                    # Analyze and save preferences first
-                    await RecommendationEngine.save_user_preferences(user_id)
-                    user_prefs = session.exec(
-                        select(UserPreference).where(UserPreference.user_id == user_id)
-                    ).first()
-
-                # If still no preferences, return top-rated lots
-                if not user_prefs:
+                # If user has no preferences or history, return top-rated lots
+                if not user_prefs or not user_prefs.get("preferred_locations"):
                     lots = session.exec(
                         select(ParkingLot).order_by(ParkingLot.rating.desc()).limit(limit)
                     ).all()
@@ -262,28 +218,7 @@ class RecommendationEngine:
                         "factors": factors
                     })
 
-                    # Save/update recommendation score
-                    existing_score = session.exec(
-                        select(RecommendationScore).where(
-                            RecommendationScore.user_id == user_id,
-                            RecommendationScore.parking_lot_id == lot.id
-                        )
-                    ).first()
-
-                    if existing_score:
-                        existing_score.score = score
-                        existing_score.factors = json.dumps(factors)
-                        existing_score.last_updated = datetime.utcnow()
-                    else:
-                        new_score = RecommendationScore(
-                            user_id=user_id,
-                            parking_lot_id=lot.id,
-                            score=score,
-                            factors=json.dumps(factors)
-                        )
-                        session.add(new_score)
-
-                session.commit()
+                # No longer saving recommendation scores to the database. They are purely computed on the fly.
 
                 # Sort by score and return top recommendations
                 recommendations = sorted(scored_lots, key=lambda x: x["score"], reverse=True)[:limit]

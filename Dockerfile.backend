@@ -1,0 +1,31 @@
+# Dockerfile.backend
+# Runs the core Reflex Backend & custom API routers
+
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    APP_ENV=production
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    bash \
+    postgresql-client \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Reflex needs these standard libraries
+RUN pip install --no-cache-dir uvicorn[standard] python-multipart
+
+COPY . .
+
+# Run the backend-only portion of Reflex (Handling state and websockets)
+EXPOSE 8000
+CMD ["reflex", "run", "--env", "prod", "--backend-only"]

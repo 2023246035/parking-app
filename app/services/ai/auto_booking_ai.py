@@ -9,9 +9,25 @@ from typing import List, Dict, Optional
 import json
 from collections import defaultdict
 from sqlmodel import select
+import os
 from app.db.models import Booking, User, ParkingLot
-from app.db.ai_models import AutoBookingSetting
 
+SETTINGS_FILE = "ai_settings.json"
+
+def _load_settings() -> Dict[int, Dict]:
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                return {int(k): v for k, v in json.load(f).items()}
+        except Exception:
+            return {}
+    return {}
+
+def _save_settings(cache: Dict[int, Dict]):
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump({str(k): v for k, v in cache.items()}, f)
+
+_settings_cache: Dict[int, Dict] = _load_settings()
 
 class AutoBookingAgent:
     """AI agent that learns user patterns and auto-books parking"""
@@ -135,43 +151,26 @@ class AutoBookingAgent:
         auto_confirm: bool = False,
         max_price_threshold: Optional[float] = None
     ):
-        """Save or update auto-booking settings for a user"""
+        """Save or update auto-booking settings for a user into local JSON cache"""
         try:
             # Detect patterns first
             patterns = AutoBookingAgent.detect_booking_patterns(user_id)
 
-            with rx.session() as session:
-                # Check if settings exist
-                existing = session.exec(
-                    select(AutoBookingSetting).where(AutoBookingSetting.user_id == user_id)
-                ).first()
+            schedule_patterns = json.dumps(patterns["weekly_patterns"])
+            preferred_lot_ids = json.dumps(patterns["recurring_locations"])
 
-                schedule_patterns = json.dumps(patterns["weekly_patterns"])
-                preferred_lot_ids = json.dumps(patterns["recurring_locations"])
+            _settings_cache[user_id] = {
+                "user_id": user_id,
+                "enabled": enabled,
+                "auto_confirm": auto_confirm,
+                "max_price_threshold": max_price_threshold,
+                "schedule_patterns": schedule_patterns,
+                "preferred_lot_ids": preferred_lot_ids,
+                "updated_at": datetime.now().isoformat()
+            }
+            _save_settings(_settings_cache)
 
-                if existing:
-                    # Update
-                    existing.enabled = enabled
-                    existing.auto_confirm = auto_confirm
-                    existing.max_price_threshold = max_price_threshold
-                    existing.schedule_patterns = schedule_patterns
-                    existing.preferred_lot_ids = preferred_lot_ids
-                    existing.updated_at = datetime.utcnow()
-                else:
-                    # Create new
-                    new_settings = AutoBookingSetting(
-                        user_id=user_id,
-                        enabled=enabled,
-                        auto_confirm=auto_confirm,
-                        max_price_threshold=max_price_threshold,
-                        schedule_patterns=schedule_patterns,
-                        preferred_lot_ids=preferred_lot_ids
-                    )
-                    session.add(new_settings)
-
-                session.commit()
-
-                return True
+            return True
 
         except Exception as e:
             print(f"Error saving auto-booking settings: {e}")
@@ -187,19 +186,17 @@ class AutoBookingAgent:
 
         try:
             with rx.session() as session:
-                # Get user's auto-booking settings
-                settings = session.exec(
-                    select(AutoBookingSetting).where(AutoBookingSetting.user_id == user_id)
-                ).first()
+                # Get user's auto-booking settings from memory
+                settings = _settings_cache.get(user_id)
 
-                if not settings or not settings.enabled:
+                if not settings or not settings["enabled"]:
                     return suggestions
 
                 # Parse patterns
-                if not settings.schedule_patterns:
+                if not settings["schedule_patterns"]:
                     return suggestions
 
-                patterns = json.loads(settings.schedule_patterns)
+                patterns = json.loads(settings["schedule_patterns"])
                 current_date = datetime.now()
 
                 # Check next 7 days for pattern matches
@@ -228,9 +225,10 @@ class AutoBookingAgent:
                             continue
 
                         # Check price threshold
-                        if settings.max_price_threshold:
+                        max_price = settings.get("max_price_threshold")
+                        if max_price:
                             total_price = lot.price_per_hour * pattern["duration"]
-                            if total_price > settings.max_price_threshold:
+                            if total_price > max_price:
                                 continue
 
                         # Add suggestion
@@ -301,16 +299,14 @@ class AutoBookingAgent:
 
         try:
             with rx.session() as session:
-                # Get all users with auto-booking enabled and auto-confirm on
-                settings_list = session.exec(
-                    select(AutoBookingSetting).where(
-                        AutoBookingSetting.enabled == True,
-                        AutoBookingSetting.auto_confirm == True
-                    )
-                ).all()
+                # Get all users with auto-booking enabled and auto-confirm on from local memory JSON
+                settings_list = [
+                    s for s in _settings_cache.values()
+                    if s.get("enabled") and s.get("auto_confirm")
+                ]
 
                 for settings in settings_list:
-                    suggestions = await AutoBookingAgent.get_auto_booking_suggestions(settings.user_id)
+                    suggestions = await AutoBookingAgent.get_auto_booking_suggestions(settings["user_id"])
                     
                     # Auto-book suggestions for tomorrow
                     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -318,12 +314,12 @@ class AutoBookingAgent:
                         if suggestion["date"] == tomorrow:
                             booking_id = await AutoBookingAgent.execute_auto_booking(
                                 suggestion,
-                                settings.user_id
+                                settings["user_id"]
                             )
                             
                             if booking_id:
                                 executed_bookings.append({
-                                    "user_id": settings.user_id,
+                                    "user_id": settings["user_id"],
                                     "booking_id": booking_id,
                                     "suggestion": suggestion
                                 })

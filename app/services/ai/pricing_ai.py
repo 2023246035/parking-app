@@ -9,8 +9,9 @@ from typing import Optional, Dict, List
 import json
 from sqlmodel import select
 from app.db.models import ParkingLot, Booking
-from app.db.ai_models import PricingHistory
 
+# In-memory storage to replace DB persistence
+_pricing_history_cache: List[Dict] = []
 
 class DynamicPricingEngine:
     """AI-powered dynamic pricing engine for parking lots"""
@@ -156,18 +157,19 @@ class DynamicPricingEngine:
                 if booking_velocity >= 5:
                     result["factors"].append("High demand period")
 
-                # Save to pricing history
-                pricing_record = PricingHistory(
-                    parking_lot_id=lot_id,
-                    base_price=base_price,
-                    dynamic_price=dynamic_price,
-                    occupancy_rate=occupancy_rate,
-                    demand_multiplier=demand_mult,
-                    time_multiplier=time_mult,
-                    factors=json.dumps(result["factors"])
-                )
-                session.add(pricing_record)
-                session.commit()
+                # Save to in-memory pricing history
+                pricing_record = {
+                    "id": len(_pricing_history_cache) + 1,
+                    "parking_lot_id": lot_id,
+                    "timestamp": current_time,
+                    "base_price": base_price,
+                    "dynamic_price": dynamic_price,
+                    "occupancy_rate": occupancy_rate,
+                    "demand_multiplier": demand_mult,
+                    "time_multiplier": time_mult,
+                    "factors": result["factors"]
+                }
+                _pricing_history_cache.append(pricing_record)
 
         except Exception as e:
             print(f"Error calculating dynamic price: {e}")
@@ -202,46 +204,50 @@ class DynamicPricingEngine:
 
     @staticmethod
     async def get_price_history(lot_id: int, days: int = 7) -> List[Dict]:
-        """Get pricing history for a parking lot"""
-        with rx.session() as session:
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
-            history = session.exec(
-                select(PricingHistory)
-                .where(
-                    PricingHistory.parking_lot_id == lot_id,
-                    PricingHistory.timestamp >= cutoff_date
-                )
-                .order_by(PricingHistory.timestamp.desc())
-            ).all()
+        """Get pricing history for a parking lot from memory"""
+        cutoff_date = datetime.now() - timedelta(days=days)
+        history = [
+            r for r in _pricing_history_cache 
+            if r["parking_lot_id"] == lot_id and r["timestamp"] >= cutoff_date
+        ]
+        # Sort by timestamp desc
+        history.sort(key=lambda x: x["timestamp"], reverse=True)
 
-            return [record.to_dict() for record in history]
+        return [
+            {
+                "id": r["id"],
+                "parking_lot_id": r["parking_lot_id"],
+                "timestamp": r["timestamp"].isoformat(),
+                "base_price": r["base_price"],
+                "dynamic_price": r["dynamic_price"],
+                "occupancy_rate": r["occupancy_rate"],
+                "factors": r["factors"]
+            }
+            for r in history
+        ]
 
     @staticmethod
     def get_price_trend(lot_id: int) -> str:
         """Get price trend: 'rising', 'falling', or 'stable'"""
         try:
-            with rx.session() as session:
-                # Get last 10 price records
-                records = session.exec(
-                    select(PricingHistory)
-                    .where(PricingHistory.parking_lot_id == lot_id)
-                    .order_by(PricingHistory.timestamp.desc())
-                    .limit(10)
-                ).all()
+            # Get last 10 price records
+            records = [r for r in _pricing_history_cache if r["parking_lot_id"] == lot_id]
+            records.sort(key=lambda x: x["timestamp"], reverse=True)
+            recent_records = records[:10]
 
-                if len(records) < 2:
-                    return "stable"
+            if len(recent_records) < 2:
+                return "stable"
 
-                # Compare recent average with older average
-                recent_avg = sum(r.dynamic_price for r in records[:3]) / 3
-                older_avg = sum(r.dynamic_price for r in records[3:]) / max(1, len(records) - 3)
+            # Compare recent average with older average
+            recent_avg = sum(r["dynamic_price"] for r in recent_records[:3]) / 3
+            older_avg = sum(r["dynamic_price"] for r in recent_records[3:]) / max(1, len(recent_records) - 3)
 
-                if recent_avg > older_avg * 1.05:
-                    return "rising"
-                elif recent_avg < older_avg * 0.95:
-                    return "falling"
-                else:
-                    return "stable"
+            if recent_avg > older_avg * 1.05:
+                return "rising"
+            elif recent_avg < older_avg * 0.95:
+                return "falling"
+            else:
+                return "stable"
 
         except Exception as e:
             print(f"Error getting price trend: {e}")

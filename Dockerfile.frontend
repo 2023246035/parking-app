@@ -1,0 +1,33 @@
+# Dockerfile.frontend
+# Builds the Reflex frontend and serves it via Nginx
+
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Node.js (Required by Reflex for frontend export)
+RUN apt-get update && apt-get install -y curl unzip \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . .
+
+# Initialize Reflex and export the frontend
+# Setup API_URL pointing to the production Backend domain
+ARG API_URL="http://localhost:8000"
+ENV API_URL=$API_URL
+
+# Export frontend static HTML/JS/CSS to .web/_static/
+RUN reflex export --frontend-only --no-zip
+
+# Step 2: Serve using Nginx
+FROM nginx:alpine
+COPY --from=builder /app/.web/_static /usr/share/nginx/html
+
+# Expose HTTP port
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
